@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AssemblyName>MorningCat</AssemblyName>
+		<RootNamespace>MorningCat</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Reference Include="OneBotLib">
+			<HintPath>..\Lib\OneBotLib.dll</HintPath>
+			<Private>true</Private>
+		</Reference>
+		<Reference Include="ModuleManagerLib">
+			<HintPath>..\Lib\ModuleManagerLib.dll</HintPath>
+		</Reference>
+		<Reference Include="logs">
+			<HintPath>..\Lib\logs.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+		<PackageReference Include="System.Text.Json" Version="10.0.0" />
+		<PackageReference Include="YamlDotNet" Version="16.3.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\MorningCat.WebUI\MorningCat.WebUI.csproj" />
+	</ItemGroup>
+
+</Project>

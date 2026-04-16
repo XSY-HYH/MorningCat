@@ -1,0 +1,138 @@
+import { BreadcrumbItem, Breadcrumbs } from '@heroui/breadcrumbs';
+import { Button } from '@heroui/button';
+import { useLocalStorage } from '@uidotdev/usehooks';
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useMemo, useRef } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
+import { MdMenu, MdMenuOpen } from 'react-icons/md';
+import { useLocation } from 'react-router-dom';
+
+import key from '@/const/key';
+
+import errorFallbackRender from '@/components/error_fallback';
+import SideBar from '@/components/sidebar';
+
+import useAuth from '@/hooks/auth';
+
+import type { MenuItem } from '@/config/site';
+import { siteConfig } from '@/config/site';
+
+const menus: MenuItem[] = siteConfig.navItems;
+
+const findTitle = (menus: MenuItem[], pathname: string): string[] => {
+  const paths: string[] = [];
+
+  if (pathname) {
+    for (const item of menus) {
+      if (item.href === pathname) {
+        paths.push(item.label);
+      } else if (item.items) {
+        const title = findTitle(item.items, pathname);
+
+        if (title.length > 0) {
+          paths.push(item.label);
+          paths.push(...title);
+        }
+      }
+    }
+  }
+
+  return paths;
+};
+const Layout: React.FC<{ children: React.ReactNode; }> = ({ children }) => {
+  const location = useLocation();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [openSideBar] = useLocalStorage(key.sideBarOpen, true);
+  const [b64img] = useLocalStorage(key.backgroundImage, '');
+  useAuth();
+
+  useEffect(() => {
+    contentRef?.current?.scrollTo?.({
+      top: 0,
+      behavior: 'smooth',
+    });
+  }, [location.pathname]);
+
+  const title = useMemo(() => {
+    return findTitle(menus, location.pathname);
+  }, [location.pathname]);
+  return (
+    <div
+      className='h-screen relative flex items-stretch overflow-hidden'
+      style={{
+        backgroundImage: b64img ? `url(${b64img})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <SideBar
+        items={menus}
+        open={openSideBar}
+        onClose={() => {}}
+      />
+      <motion.div
+        layout
+        ref={contentRef}
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className={clsx(
+          'flex-1 overflow-y-auto',
+          'transition-all duration-300 ease-in-out',
+          openSideBar ? 'ml-0' : 'ml-0',
+          'pb-10 md:pb-0'
+        )}
+      >
+        <div
+          className={clsx(
+            'h-10 flex items-center font-bold text-xl backdrop-blur-lg rounded-full',
+            'dark:bg-background dark:shadow-primary-100',
+            'bg-background !bg-opacity-50',
+            'shadow-sm shadow-primary-50',
+            'z-30 m-2 mb-0 sticky top-2 left-0'
+          )}
+        >
+          <div
+            className={clsx(
+              'mr-1 ease-in-out ml-0 md:relative z-50 md:z-auto',
+              openSideBar && 'pl-2',
+              'md:!ml-0 md:pl-0'
+            )}
+          >
+            <Button
+              isIconOnly
+              radius='full'
+              variant='light'
+              onPress={() => {}}
+            >
+              {openSideBar ? <MdMenuOpen size={24} /> : <MdMenu size={24} />}
+            </Button>
+          </div>
+          <Breadcrumbs isDisabled size='lg'>
+            {title?.map((item, index) => (
+              <BreadcrumbItem key={index}>
+                <AnimatePresence mode='wait'>
+                  <motion.div
+                    key={item}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {item}
+                  </motion.div>
+                </AnimatePresence>
+              </BreadcrumbItem>
+            ))}
+          </Breadcrumbs>
+        </div>
+        <ErrorBoundary fallbackRender={errorFallbackRender}>
+          {children}
+        </ErrorBoundary>
+      </motion.div>
+    </div>
+  );
+};
+
+export default Layout;

@@ -1,0 +1,27 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Node modules
+node_modules/
+
+# Temp files
+*.tmp
+*.temp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test projects
+TestOneBotLib/
+
+# Plugin folders (Chinese name)
+插件/
