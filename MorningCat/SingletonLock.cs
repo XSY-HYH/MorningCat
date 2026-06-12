@@ -1,0 +1,76 @@
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+
+namespace MorningCat
+{
+    public class SingletonLock : IDisposable
+    {
+        private readonly string _lockFilePath;
+        private FileStream _lockStream;
+        private bool _disposed;
+
+        public SingletonLock()
+        {
+            var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            _lockFilePath = Path.Combine(baseDirectory, ".lock");
+        }
+
+        public bool TryAcquire()
+        {
+            try
+            {
+                _lockStream = new FileStream(
+                    _lockFilePath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None);
+
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                var bytes = System.Text.Encoding.UTF8.GetBytes(timestamp);
+                _lockStream.Write(bytes, 0, bytes.Length);
+                _lockStream.Flush();
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    File.SetAttributes(_lockFilePath, File.GetAttributes(_lockFilePath) | FileAttributes.Hidden);
+                }
+
+                return true;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        public void Release()
+        {
+            try
+            {
+                _lockStream?.Dispose();
+                _lockStream = null;
+
+                if (File.Exists(_lockFilePath))
+                {
+                    File.Delete(_lockFilePath);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+
+            Release();
+            _disposed = true;
+        }
+    }
+}

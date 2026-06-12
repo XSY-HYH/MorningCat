@@ -1,0 +1,55 @@
+# Build outputs
+bin/
+obj/
+out/
+set-version.ps1
+PluginSignature.txt
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# NuGet packages
+*.nupkg
+
+# Node modules
+node_modules/
+
+# Python virtual environments
+manim_env/
+*venv*/
+__pycache__/
+
+# Temp files
+*.tmp
+*.temp
+*.log
+error.log
+/.*/
+.**/
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.trae/
+.idea/
+*.swp
+
+# Test projects
+TestOneBotLib/
+
+# Plugin folders (Chinese name)
+插件/
+
+# Plugin Store
+MorningCat.PluginStore/
+
+# Custom/test plugins (not open-sourced)
+定制插件/
+ApiTestModule/
+VideoDownloaderPlugin/
+
+# Large resource files
+MorningCat.PPC/Resources/*.zip
+MorningCatLaunch/mlc.zip

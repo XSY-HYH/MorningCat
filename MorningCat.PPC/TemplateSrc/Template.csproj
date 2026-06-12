@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>$(PluginName)</AssemblyName>
+    <RootNamespace>MorningCat.PythonPlugin</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Logging">
+      <HintPath>..\Dependency\logs.dll</HintPath>
+    </Reference>
+    <Reference Include="ModuleManagerLib">
+      <HintPath>..\Dependency\ModuleManagerLib.dll</HintPath>
+    </Reference>
+    <Reference Include="MorningCat">
+      <HintPath>..\Dependency\MorningCat.dll</HintPath>
+    </Reference>
+    <Reference Include="OneBotLib">
+      <HintPath>..\Dependency\OneBotLib.dll</HintPath>
+    </Reference>
+    <Reference Include="PyToNet">
+      <HintPath>..\Dependency\PyToNet.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resource\**" />
+  </ItemGroup>
+
+</Project>
