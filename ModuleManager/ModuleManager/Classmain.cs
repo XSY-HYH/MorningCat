@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace ModuleManagerLib
 {
@@ -119,33 +120,380 @@ namespace ModuleManagerLib
         public HashSet<string> FailedModules { get; } = new HashSet<string>();
     }
 
+    // ===================== 线程安全的集合包装器 =====================
+
+    internal class ThreadSafeModuleCollection
+    {
+        private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+        private readonly List<InternalModuleInfo> _modules = new List<InternalModuleInfo>();
+        private readonly Dictionary<string, InternalModuleInfo> _nameMap = new Dictionary<string, InternalModuleInfo>();
+
+        public void Add(InternalModuleInfo module)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _modules.Add(module);
+                _nameMap[module.ModuleName] = module;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public bool Remove(string moduleName)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                if (_nameMap.TryGetValue(moduleName, out var module))
+                {
+                    _modules.Remove(module);
+                    _nameMap.Remove(moduleName);
+                    return true;
+                }
+                return false;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public bool TryGet(string moduleName, out InternalModuleInfo module)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _nameMap.TryGetValue(moduleName, out module);
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public List<InternalModuleInfo> GetAll()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _modules.ToList();
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public List<string> GetAllNames()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _nameMap.Keys.ToList();
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public List<InternalModuleInfo> GetByStatus(ModuleStatus status)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _modules.Where(m => m.Status == status).ToList();
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public void Clear()
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _modules.Clear();
+                _nameMap.Clear();
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public int Count
+        {
+            get
+            {
+                _lock.EnterReadLock();
+                try
+                {
+                    return _modules.Count;
+                }
+                finally
+                {
+                    _lock.ExitReadLock();
+                }
+            }
+        }
+    }
+
+    internal class ThreadSafeGraph
+    {
+        private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+        private readonly Dictionary<string, List<string>> _graph = new Dictionary<string, List<string>>();
+
+        public void Set(string key, List<string> values)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _graph[key] = values.ToList();
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public bool TryGet(string key, out List<string> values)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                if (_graph.TryGetValue(key, out var v))
+                {
+                    values = v.ToList();
+                    return true;
+                }
+                values = null;
+                return false;
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public void Remove(string key)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _graph.Remove(key);
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public Dictionary<string, List<string>> GetSnapshot()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _graph.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToList());
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public void Clear()
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _graph.Clear();
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public List<string> GetKeys()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _graph.Keys.ToList();
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+    }
+
+    internal class ThreadSafeLibraryCollection
+    {
+        private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+        private readonly List<string> _names = new List<string>();
+        private readonly List<string> _paths = new List<string>();
+
+        public void Add(string name, string path)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _names.Add(name);
+                _paths.Add(path);
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public bool Remove(string name)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                int idx = _names.IndexOf(name);
+                if (idx != -1)
+                {
+                    _names.RemoveAt(idx);
+                    _paths.RemoveAt(idx);
+                    return true;
+                }
+                return false;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public bool Contains(string name)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _names.Contains(name);
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public List<string> GetNames()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _names.ToList();
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public List<string> GetPaths()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _paths.ToList();
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public (string name, string path)? GetByName(string name)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                int idx = _names.IndexOf(name);
+                if (idx != -1)
+                    return (_names[idx], _paths[idx]);
+                return null;
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        public void Clear()
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _names.Clear();
+                _paths.Clear();
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public int Count
+        {
+            get
+            {
+                _lock.EnterReadLock();
+                try
+                {
+                    return _names.Count;
+                }
+                finally
+                {
+                    _lock.ExitReadLock();
+                }
+            }
+        }
+    }
+
     // ===================== 主模块管理器 =====================
 
-    public class ModuleManager
+    public class ModuleManager : IDisposable
     {
         private string _modulesFolderPath;
         private string _libraryFolderPath;
-        private readonly List<InternalModuleInfo> _moduleInfos = new List<InternalModuleInfo>();
-        private readonly Dictionary<string, InternalModuleInfo> _moduleNameMap = new Dictionary<string, InternalModuleInfo>();
-        private readonly Dictionary<string, List<string>> _dependencyGraph = new Dictionary<string, List<string>>();
-        private readonly Dictionary<string, List<string>> _reverseDependencyGraph = new Dictionary<string, List<string>>();
-        private ProgressInfo _currentProgress = new ProgressInfo();
-        private readonly object _progressLock = new object();
-        private readonly List<string> _loadedLibraries = new List<string>();
-        private readonly List<string> _loadedLibraryPaths = new List<string>();
-
+        
+        // 线程安全的集合
+        private readonly ThreadSafeModuleCollection _modules = new ThreadSafeModuleCollection();
+        private readonly ThreadSafeGraph _dependencyGraph = new ThreadSafeGraph();
+        private readonly ThreadSafeGraph _reverseDependencyGraph = new ThreadSafeGraph();
+        private readonly ThreadSafeGraph _libraryDependencyGraph = new ThreadSafeGraph();
+        private readonly ThreadSafeGraph _libraryReverseDependencyGraph = new ThreadSafeGraph();
+        private readonly ThreadSafeLibraryCollection _loadedLibraries = new ThreadSafeLibraryCollection();
+        
+        // 并发字典用于 ALC 管理（已经线程安全）
+        private readonly ConcurrentDictionary<string, AssemblyLoadContext> _moduleContexts = new ConcurrentDictionary<string, AssemblyLoadContext>();
+        private readonly ConcurrentDictionary<string, AssemblyLoadContext> _libraryContexts = new ConcurrentDictionary<string, AssemblyLoadContext>();
+        
+        // 服务容器
+        private readonly ReaderWriterLockSlim _serviceLock = new ReaderWriterLockSlim();
         private readonly Dictionary<Type, object> _serviceContainer = new Dictionary<Type, object>();
         private readonly Dictionary<string, object> _namedServices = new Dictionary<string, object>();
+        
         private readonly PluginApiService _pluginApiService = new PluginApiService();
-
-        private readonly Dictionary<string, AssemblyLoadContext> _moduleContexts = new Dictionary<string, AssemblyLoadContext>();
-        private readonly Dictionary<string, AssemblyLoadContext> _libraryContexts = new Dictionary<string, AssemblyLoadContext>();
-
-        private readonly Dictionary<string, List<string>> _libraryDependencyGraph = new Dictionary<string, List<string>>();
-        private readonly Dictionary<string, List<string>> _libraryReverseDependencyGraph = new Dictionary<string, List<string>>();
-
+        private ProgressInfo _currentProgress = new ProgressInfo();
+        private readonly object _progressLock = new object();
+        
         private Func<Type, object, Task<ModuleDeclaration>> _declarationProvider;
         private bool _isLoaded = false;
+        private bool _disposed = false;
+        
+        // 日志回调（可选）
+        public Action<string, Exception> OnError { get; set; }
 
         public ProgressInfo CurrentProgress => _currentProgress;
         public PluginApiService PluginApi => _pluginApiService;
@@ -182,48 +530,100 @@ namespace ModuleManagerLib
 
         public void RegisterService<T>(T service) where T : class
         {
-            lock (_serviceContainer)
+            _serviceLock.EnterWriteLock();
+            try
+            {
                 _serviceContainer[typeof(T)] = service;
+            }
+            finally
+            {
+                _serviceLock.ExitWriteLock();
+            }
         }
 
         public void RegisterService(string name, object service)
         {
-            lock (_namedServices)
+            _serviceLock.EnterWriteLock();
+            try
+            {
                 _namedServices[name] = service;
+            }
+            finally
+            {
+                _serviceLock.ExitWriteLock();
+            }
         }
 
         public void RegisterServices(Dictionary<Type, object> services)
         {
-            lock (_serviceContainer)
+            _serviceLock.EnterWriteLock();
+            try
+            {
                 foreach (var kvp in services)
                     _serviceContainer[kvp.Key] = kvp.Value;
+            }
+            finally
+            {
+                _serviceLock.ExitWriteLock();
+            }
         }
 
         public T GetService<T>() where T : class
         {
-            lock (_serviceContainer)
+            _serviceLock.EnterReadLock();
+            try
+            {
                 return _serviceContainer.TryGetValue(typeof(T), out var s) ? s as T : null;
+            }
+            finally
+            {
+                _serviceLock.ExitReadLock();
+            }
         }
 
         public object GetService(string name)
         {
-            lock (_namedServices)
+            _serviceLock.EnterReadLock();
+            try
+            {
                 return _namedServices.TryGetValue(name, out var s) ? s : null;
+            }
+            finally
+            {
+                _serviceLock.ExitReadLock();
+            }
         }
+        
         public List<Type> GetRegisteredServiceTypes()
         {
-            lock (_serviceContainer)
+            _serviceLock.EnterReadLock();
+            try
+            {
                 return _serviceContainer.Keys.ToList();
+            }
+            finally
+            {
+                _serviceLock.ExitReadLock();
+            }
         }
+        
         public List<string> GetRegisteredServiceNames()
         {
-            lock (_namedServices)
+            _serviceLock.EnterReadLock();
+            try
+            {
                 return _namedServices.Keys.ToList();
+            }
+            finally
+            {
+                _serviceLock.ExitReadLock();
+            }
         }
 
         private object? ResolveByType(Type type)
         {
-            lock (_serviceContainer)
+            _serviceLock.EnterReadLock();
+            try
             {
                 if (_serviceContainer.TryGetValue(type, out var service))
                     return service;
@@ -237,8 +637,11 @@ namespace ModuleManagerLib
                             return kvp.Value;
                     }
                 }
-
                 return null;
+            }
+            finally
+            {
+                _serviceLock.ExitReadLock();
             }
         }
 
@@ -267,7 +670,7 @@ namespace ModuleManagerLib
                         if (setter != null)
                             setter.Invoke(instance, new object[] { value });
                     }
-                    catch { }
+                    catch { LogError($"Failed to set property {prop.Name}", null); }
                 }
             }
         }
@@ -287,7 +690,7 @@ namespace ModuleManagerLib
                     {
                         field.SetValueDirect(__makeref(instance), value);
                     }
-                    catch { }
+                    catch { LogError($"Failed to set field {field.Name}", null); }
                 }
             }
         }
@@ -296,24 +699,14 @@ namespace ModuleManagerLib
         {
             if (instance == null) return;
             var type = instance.GetType();
-            var injectedProps = new List<string>();
 
             foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (!prop.CanWrite) continue;
                 var service = ResolveByType(prop.PropertyType);
-                if (service != null)
+                if (service != null && IsTypeCompatible(prop.PropertyType, service))
                 {
-                    var compatible = IsTypeCompatible(prop.PropertyType, service);
-                    if (compatible)
-                    {
-                        try
-                        {
-                            SafeSetValue(prop, instance, service);
-                            injectedProps.Add(prop.Name);
-                        }
-                        catch { }
-                    }
+                    SafeSetValue(prop, instance, service);
                 }
             }
 
@@ -324,6 +717,7 @@ namespace ModuleManagerLib
                     SafeSetField(field, instance, service);
             }
 
+            // Inject attribute injection
             foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (!prop.CanWrite) continue;
@@ -338,23 +732,15 @@ namespace ModuleManagerLib
                 object? service = null;
                 if (!string.IsNullOrEmpty(attrName))
                 {
-                    lock (_namedServices)
-                        _namedServices.TryGetValue(attrName, out service);
+                    service = GetService(attrName);
                 }
                 else if (attrType != null)
                 {
                     service = ResolveByType(attrType);
                 }
-                if (service != null)
+                if (service != null && IsTypeCompatible(prop.PropertyType, service))
                 {
-                    if (IsTypeCompatible(prop.PropertyType, service))
-                    {
-                        try
-                        {
-                            SafeSetValue(prop, instance, service);
-                        }
-                        catch { }
-                    }
+                    SafeSetValue(prop, instance, service);
                 }
             }
 
@@ -371,8 +757,7 @@ namespace ModuleManagerLib
                 object? service = null;
                 if (!string.IsNullOrEmpty(attrName))
                 {
-                    lock (_namedServices)
-                        _namedServices.TryGetValue(attrName, out service);
+                    service = GetService(attrName);
                 }
                 else if (attrType != null)
                 {
@@ -399,20 +784,16 @@ namespace ModuleManagerLib
                         {
                             var paramType = parameters[i].ParameterType;
                             var service = ResolveByType(paramType);
-                            if (service != null)
-                            {
-                                if (IsTypeCompatible(paramType, service))
-                                    args[i] = service;
-                            }
+                            if (service != null && IsTypeCompatible(paramType, service))
+                                args[i] = service;
                         }
-                        try
-                        {
-                            setMethod.Invoke(instance, args);
-                        }
-                        catch { }
+                        setMethod.Invoke(instance, args);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    LogError($"Failed to invoke SetServices on {type.Name}", ex);
+                }
             }
         }
 
@@ -422,7 +803,6 @@ namespace ModuleManagerLib
 
         private Assembly? OnModuleContextResolving(AssemblyLoadContext context, AssemblyName assemblyName)
         {
-            // 优先从默认ALC（主程序）解析，确保跨ALC类型兼容
             var defaultAlc = AssemblyLoadContext.Default;
             var defaultAssembly = defaultAlc.Assemblies
                 .FirstOrDefault(a =>
@@ -433,7 +813,6 @@ namespace ModuleManagerLib
             if (defaultAssembly != null)
                 return defaultAssembly;
 
-            // 再搜索其他ALC
             foreach (var alc in AssemblyLoadContext.All)
             {
                 if (alc == context || alc == defaultAlc) continue;
@@ -452,15 +831,34 @@ namespace ModuleManagerLib
 
         #endregion
 
-        #region 流加载
+        #region 内存优化的流加载
 
+        /// <summary>
+        /// 内存优化的程序集加载方法
+        /// 避免重复内存分配，正确释放资源
+        /// </summary>
         private async Task<Assembly> LoadAssemblyFromStreamAsync(string path, AssemblyLoadContext context)
         {
-            byte[] data = await File.ReadAllBytesAsync(path);
-            using var ms = new MemoryStream(data);
-            var assembly = context.LoadFromStream(ms);
-            Array.Clear(data, 0, data.Length);
-            return assembly;
+            // 使用 FileStream 直接读取，避免额外内存拷贝
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+            var assembly = context.LoadFromStream(fs);
+            return await Task.FromResult(assembly);
+        }
+
+        /// <summary>
+        /// 安全加载程序集，带内存保护
+        /// </summary>
+        private async Task<Assembly> LoadAssemblySafelyAsync(string path, AssemblyLoadContext context)
+        {
+            try
+            {
+                return await LoadAssemblyFromStreamAsync(path, context);
+            }
+            catch (Exception ex)
+            {
+                LogError($"Failed to load assembly from {path}", ex);
+                throw;
+            }
         }
 
         #endregion
@@ -482,17 +880,15 @@ namespace ModuleManagerLib
                 {
                     var name = Path.GetFileName(path);
                     var ctx = new AssemblyLoadContext(name, true);
-                    await LoadAssemblyFromStreamAsync(path, ctx);
-                    lock (_loadedLibraries)
-                    {
-                        _loadedLibraries.Add(name);
-                        _loadedLibraryPaths.Add(path);
-                    }
-                    _libraryContexts[name] = ctx;
+                    ctx.Resolving += OnModuleContextResolving;
+                    await LoadAssemblySafelyAsync(path, ctx);
+                    _loadedLibraries.Add(name, path);
+                    _libraryContexts.TryAdd(name, ctx);
                     LibraryLoaded?.Invoke(name);
                 }
                 catch (Exception ex)
                 {
+                    LogError($"Failed to load library {Path.GetFileName(path)}", ex);
                 }
             }
         }
@@ -512,11 +908,12 @@ namespace ModuleManagerLib
 
                 foreach (var path in dllFiles)
                 {
+                    AssemblyLoadContext ctx = null;
                     try
                     {
-                        var ctx = new AssemblyLoadContext(Path.GetFileNameWithoutExtension(path), true);
+                        ctx = new AssemblyLoadContext(Path.GetFileNameWithoutExtension(path), true);
                         ctx.Resolving += OnModuleContextResolving;
-                        var asm = await LoadAssemblyFromStreamAsync(path, ctx);
+                        var asm = await LoadAssemblySafelyAsync(path, ctx);
 
                         var types = asm.GetTypes()
                             .Where(t => t.IsClass && !t.IsAbstract && t.GetMethod("Init") != null)
@@ -547,19 +944,19 @@ namespace ModuleManagerLib
                                     IsDynamicLoaded = false
                                 };
                                 result.Modules.Add(info);
-                                lock (_moduleContexts)
-                                    _moduleContexts[type.Name] = ctx;
+                                _moduleContexts.TryAdd(type.Name, ctx);
                             }
                             else
                             {
                                 result.Errors.Add($"NoInitMethod:{type.Name}");
-                                ctx.Unload();
                             }
                         }
                     }
                     catch (Exception ex)
                     {
                         result.Errors.Add($"LoadFailed:{Path.GetFileName(path)}|{ex.Message}");
+                        LogError($"Failed to scan module {Path.GetFileName(path)}", ex);
+                        try { ctx?.Unload(); } catch { }
                     }
                 }
                 return result;
@@ -587,6 +984,7 @@ namespace ModuleManagerLib
                     {
                         result.Errors.Add($"DeclarationFailed:{module.ModuleName}|{ex.Message}");
                         result.FailedModules.Add(module.ModuleName);
+                        LogError($"Declaration failed for {module.ModuleName}", ex);
                         continue;
                     }
                 }
@@ -608,6 +1006,7 @@ namespace ModuleManagerLib
                         {
                             result.Errors.Add($"GetDepsFailed:{module.ModuleName}|{ex.Message}");
                             result.FailedModules.Add(module.ModuleName);
+                            LogError($"GetDependencies failed for {module.ModuleName}", ex);
                             continue;
                         }
                     }
@@ -624,6 +1023,7 @@ namespace ModuleManagerLib
                         {
                             result.Errors.Add($"GetLibraryDepsFailed:{module.ModuleName}|{ex.Message}");
                             result.FailedModules.Add(module.ModuleName);
+                            LogError($"GetLibraryDependencies failed for {module.ModuleName}", ex);
                             continue;
                         }
                     }
@@ -662,13 +1062,11 @@ namespace ModuleManagerLib
 
         private void BuildDependencyGraph(IEnumerable<InternalModuleInfo> modules)
         {
-            lock (_dependencyGraph)
+            foreach (var module in modules)
             {
-                foreach (var module in modules)
-                {
-                    _dependencyGraph[module.ModuleName] = module.Declaration.PluginDependencies.ToList();
-                    _libraryDependencyGraph[module.ModuleName] = module.Declaration.LibraryDependencies.Select(l => l.EndsWith(".dll") ? l : l + ".dll").ToList();
-                }
+                _dependencyGraph.Set(module.ModuleName, module.Declaration.PluginDependencies.ToList());
+                _libraryDependencyGraph.Set(module.ModuleName, module.Declaration.LibraryDependencies
+                    .Select(l => l.EndsWith(".dll") ? l : l + ".dll").ToList());
             }
 
             RebuildReverseGraph();
@@ -677,36 +1075,45 @@ namespace ModuleManagerLib
 
         private void RebuildReverseGraph()
         {
-            lock (_reverseDependencyGraph)
+            var newReverseGraph = new Dictionary<string, List<string>>();
+            var snapshot = _dependencyGraph.GetSnapshot();
+            
+            foreach (var kvp in snapshot)
             {
-                _reverseDependencyGraph.Clear();
-                foreach (var kvp in _dependencyGraph)
+                foreach (var dep in kvp.Value)
                 {
-                    foreach (var dep in kvp.Value)
-                    {
-                        if (!_moduleNameMap.ContainsKey(dep)) continue;
-                        if (!_reverseDependencyGraph.ContainsKey(dep))
-                            _reverseDependencyGraph[dep] = new List<string>();
-                        _reverseDependencyGraph[dep].Add(kvp.Key);
-                    }
+                    if (!newReverseGraph.ContainsKey(dep))
+                        newReverseGraph[dep] = new List<string>();
+                    newReverseGraph[dep].Add(kvp.Key);
                 }
+            }
+            
+            _reverseDependencyGraph.Clear();
+            foreach (var kvp in newReverseGraph)
+            {
+                _reverseDependencyGraph.Set(kvp.Key, kvp.Value);
             }
         }
 
         private void RebuildLibraryReverseGraph()
         {
-            lock (_libraryReverseDependencyGraph)
+            var newReverseGraph = new Dictionary<string, List<string>>();
+            var snapshot = _libraryDependencyGraph.GetSnapshot();
+            
+            foreach (var kvp in snapshot)
             {
-                _libraryReverseDependencyGraph.Clear();
-                foreach (var kvp in _libraryDependencyGraph)
+                foreach (var lib in kvp.Value)
                 {
-                    foreach (var lib in kvp.Value)
-                    {
-                        if (!_libraryReverseDependencyGraph.ContainsKey(lib))
-                            _libraryReverseDependencyGraph[lib] = new List<string>();
-                        _libraryReverseDependencyGraph[lib].Add(kvp.Key);
-                    }
+                    if (!newReverseGraph.ContainsKey(lib))
+                        newReverseGraph[lib] = new List<string>();
+                    newReverseGraph[lib].Add(kvp.Key);
                 }
+            }
+            
+            _libraryReverseDependencyGraph.Clear();
+            foreach (var kvp in newReverseGraph)
+            {
+                _libraryReverseDependencyGraph.Set(kvp.Key, kvp.Value);
             }
         }
 
@@ -714,19 +1121,20 @@ namespace ModuleManagerLib
 
         #region 拓扑排序
 
-        private List<InternalModuleInfo> TopologicalSort(IEnumerable<InternalModuleInfo> modules, Dictionary<string, List<string>> graph)
+        private List<InternalModuleInfo> TopologicalSort(IEnumerable<InternalModuleInfo> modules, ThreadSafeGraph graph)
         {
             var moduleMap = modules.ToDictionary(m => m.ModuleName, m => m);
             var sorted = new List<InternalModuleInfo>();
             var temp = new HashSet<string>();
             var perm = new HashSet<string>();
+            var graphSnapshot = graph.GetSnapshot();
 
             bool Visit(string name)
             {
                 if (perm.Contains(name)) return true;
                 if (temp.Contains(name)) return false;
                 temp.Add(name);
-                if (graph.TryGetValue(name, out var deps))
+                if (graphSnapshot.TryGetValue(name, out var deps))
                 {
                     foreach (var dep in deps)
                         if (moduleMap.ContainsKey(dep) && !Visit(dep))
@@ -766,6 +1174,7 @@ namespace ModuleManagerLib
             catch (Exception ex)
             {
                 module.Status = ModuleStatus.Error;
+                LogError($"Failed to initialize module {module.ModuleName}", ex);
                 return (false, ex);
             }
             finally
@@ -797,43 +1206,34 @@ namespace ModuleManagerLib
                 return result;
             }
 
-            lock (_moduleInfos)
+            foreach (var m in scan.Modules)
             {
-                _moduleInfos.Clear();
-                _moduleNameMap.Clear();
-                foreach (var m in scan.Modules)
-                {
-                    _moduleInfos.Add(m);
-                    _moduleNameMap[m.ModuleName] = m;
-                }
+                _modules.Add(m);
             }
 
-            UpdateProgress("ParsingDeps", 0, _moduleInfos.Count, "");
-            var parse = await ParseDependenciesAsync(_moduleInfos);
+            UpdateProgress("ParsingDeps", 0, _modules.Count, "");
+            var allModules = _modules.GetAll();
+            var parse = await ParseDependenciesAsync(allModules);
             if (parse.Errors.Count > 0)
             {
                 result.Success = false;
                 result.Errors.AddRange(parse.Errors);
                 foreach (var fail in parse.FailedModules)
                 {
-                    var mod = _moduleInfos.FirstOrDefault(m => m.ModuleName == fail);
+                    var mod = allModules.FirstOrDefault(m => m.ModuleName == fail);
                     if (mod != null)
                     {
                         await UnloadModuleInternalAsync(mod);
-                        lock (_moduleInfos)
-                        {
-                            _moduleInfos.Remove(mod);
-                            _moduleNameMap.Remove(mod.ModuleName);
-                        }
+                        _modules.Remove(mod.ModuleName);
                         result.Errors.Add($"ModuleDependencyFailed:{mod.ModuleName}");
                         ModuleFailed?.Invoke(mod.ToPublic(), new Exception($"DependencyFailed:{string.Join(",", mod.Declaration?.PluginDependencies ?? new List<string>())}"));
                     }
                 }
             }
 
-            BuildDependencyGraph(_moduleInfos);
+            BuildDependencyGraph(allModules);
 
-            var sorted = TopologicalSort(_moduleInfos, _dependencyGraph);
+            var sorted = TopologicalSort(allModules, _dependencyGraph);
             if (sorted == null)
             {
                 result.Success = false;
@@ -863,15 +1263,11 @@ namespace ModuleManagerLib
             result.Success = result.Errors.Count == 0;
             UpdateProgress("Done", sorted.Count, sorted.Count, result.Success ? "OK" : "PartialFail");
 
-            var errors = _moduleInfos.Where(m => m.Status == ModuleStatus.Error).ToList();
+            var errors = _modules.GetByStatus(ModuleStatus.Error);
             foreach (var mod in errors)
             {
                 await UnloadModuleInternalAsync(mod);
-                lock (_moduleInfos)
-                {
-                    _moduleInfos.Remove(mod);
-                    _moduleNameMap.Remove(mod.ModuleName);
-                }
+                _modules.Remove(mod.ModuleName);
             }
 
             _isLoaded = true;
@@ -896,11 +1292,12 @@ namespace ModuleManagerLib
             Assembly asm;
             try
             {
-                asm = await LoadAssemblyFromStreamAsync(dllPath, ctx);
+                asm = await LoadAssemblySafelyAsync(dllPath, ctx);
             }
             catch (Exception ex)
             {
                 result.Errors.Add($"LoadFailed:{Path.GetFileName(dllPath)}|{ex.Message}");
+                try { ctx.Unload(); } catch { }
                 return result;
             }
 
@@ -908,7 +1305,7 @@ namespace ModuleManagerLib
             if (types.Count == 0)
             {
                 result.Errors.Add($"NoModuleFound:{Path.GetFileName(dllPath)}");
-                ctx.Unload();
+                try { ctx.Unload(); } catch { }
                 return result;
             }
 
@@ -945,17 +1342,14 @@ namespace ModuleManagerLib
 
             if (newModules.Count == 0)
             {
-                ctx.Unload();
+                try { ctx.Unload(); } catch { }
                 return result;
             }
 
-            lock (_moduleInfos)
+            foreach (var m in newModules)
             {
-                foreach (var m in newModules)
-                {
-                    _moduleInfos.Add(m);
-                    _moduleNameMap[m.ModuleName] = m;
-                }
+                _modules.Add(m);
+                _moduleContexts.TryAdd(m.ModuleName, ctx);
             }
 
             var parse = await ParseDependenciesAsync(newModules);
@@ -963,11 +1357,7 @@ namespace ModuleManagerLib
             {
                 foreach (var m in newModules)
                 {
-                    lock (_moduleInfos)
-                    {
-                        _moduleInfos.Remove(m);
-                        _moduleNameMap.Remove(m.ModuleName);
-                    }
+                    _modules.Remove(m.ModuleName);
                     await UnloadModuleInternalAsync(m);
                 }
                 result.Errors.AddRange(parse.Errors);
@@ -983,11 +1373,7 @@ namespace ModuleManagerLib
                 result.Errors.Add("CircularDependencyInDynamicLoad");
                 foreach (var m in newModules)
                 {
-                    lock (_moduleInfos)
-                    {
-                        _moduleInfos.Remove(m);
-                        _moduleNameMap.Remove(m.ModuleName);
-                    }
+                    _modules.Remove(m.ModuleName);
                     await UnloadModuleInternalAsync(m);
                 }
                 return result;
@@ -1011,11 +1397,7 @@ namespace ModuleManagerLib
             var failed = newModules.Where(m => m.Status == ModuleStatus.Error).ToList();
             foreach (var m in failed)
             {
-                lock (_moduleInfos)
-                {
-                    _moduleInfos.Remove(m);
-                    _moduleNameMap.Remove(m.ModuleName);
-                }
+                _modules.Remove(m.ModuleName);
                 await UnloadModuleInternalAsync(m);
             }
 
@@ -1029,7 +1411,7 @@ namespace ModuleManagerLib
 
         public async Task<bool> DynamicUnloadModuleAsync(string moduleName)
         {
-            if (!_moduleNameMap.TryGetValue(moduleName, out var target))
+            if (!_modules.TryGet(moduleName, out var target))
                 return false;
             if (target.Status != ModuleStatus.Running)
                 return false;
@@ -1043,12 +1425,12 @@ namespace ModuleManagerLib
             {
                 if (visited.Contains(name)) return;
                 visited.Add(name);
-                toUnload.Add(_moduleNameMap[name]);
-                if (_reverseDependencyGraph.TryGetValue(name, out var dependents))
+                if (_modules.TryGet(name, out var mod))
+                    toUnload.Add(mod);
+                if (_reverseDependencyGraph.TryGet(name, out var dependents))
                 {
                     foreach (var dep in dependents)
-                        if (_moduleNameMap.ContainsKey(dep))
-                            Collect(dep);
+                        Collect(dep);
                 }
             }
             Collect(moduleName);
@@ -1063,29 +1445,17 @@ namespace ModuleManagerLib
             {
                 var publicInfo = mod.ToPublic();
                 await UnloadModuleInternalAsync(mod);
-                lock (_moduleInfos)
-                {
-                    _moduleInfos.Remove(mod);
-                    _moduleNameMap.Remove(mod.ModuleName);
-                }
-                lock (_dependencyGraph)
-                {
-                    _dependencyGraph.Remove(mod.ModuleName);
-                    _libraryDependencyGraph.Remove(mod.ModuleName);
-                }
-                lock (_moduleContexts)
-                    _moduleContexts.Remove(mod.ModuleName);
+                _modules.Remove(mod.ModuleName);
+                _dependencyGraph.Remove(mod.ModuleName);
+                _libraryDependencyGraph.Remove(mod.ModuleName);
+                _moduleContexts.TryRemove(mod.ModuleName, out _);
                 ModuleUnloaded?.Invoke(publicInfo);
             }
 
             RebuildReverseGraph();
             RebuildLibraryReverseGraph();
 
-            for (int i = 0; i < 3; i++)
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
+            ForceGarbageCollection();
 
             return true;
         }
@@ -1109,11 +1479,14 @@ namespace ModuleManagerLib
                 if (module.ModuleInstance is IDisposable disp)
                     disp.Dispose();
                 module.ModuleInstance = null;
-                module.AssemblyContext?.Unload();
+                
+                // 尝试卸载 ALC，可能不会立即生效
+                try { module.AssemblyContext?.Unload(); } catch { }
                 module.Status = ModuleStatus.Unloaded;
             }
             catch (Exception ex)
             {
+                LogError($"Failed to unload module {module.ModuleName}", ex);
                 ModuleFailed?.Invoke(module.ToPublic(), ex);
             }
         }
@@ -1124,58 +1497,37 @@ namespace ModuleManagerLib
 
         public async Task UnloadAllModulesAsync()
         {
-            var tasks = _moduleInfos.Select(UnloadModuleInternalAsync);
-            await Task.WhenAll(tasks);
-
-            var unloadedModules = _moduleInfos.Select(m => m.ToPublic()).ToList();
-            lock (_moduleInfos)
+            var allModules = _modules.GetAll();
+            foreach (var module in allModules)
             {
-                _moduleInfos.Clear();
-                _moduleNameMap.Clear();
-            }
-            lock (_dependencyGraph)
-            {
-                _dependencyGraph.Clear();
-                _reverseDependencyGraph.Clear();
-                _libraryDependencyGraph.Clear();
-                _libraryReverseDependencyGraph.Clear();
-            }
-            lock (_moduleContexts)
-                _moduleContexts.Clear();
-
-            foreach (var module in unloadedModules)
-            {
-                ModuleUnloaded?.Invoke(module);
+                await UnloadModuleInternalAsync(module);
             }
 
-            for (int i = 0; i < 3; i++)
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
+            _modules.Clear();
+            _dependencyGraph.Clear();
+            _reverseDependencyGraph.Clear();
+            _libraryDependencyGraph.Clear();
+            _libraryReverseDependencyGraph.Clear();
+            _moduleContexts.Clear();
+
             UpdateProgress("Unloaded", 0, 0, "");
             _isLoaded = false;
+            
+            ForceGarbageCollection();
         }
 
         public async Task<bool> UnloadModuleAsync(string moduleName)
         {
-            if (!_moduleNameMap.TryGetValue(moduleName, out var module))
+            if (!_modules.TryGet(moduleName, out var module))
                 return false;
             if (module.Status != ModuleStatus.Running)
                 return false;
 
             var publicInfo = module.ToPublic();
             await UnloadModuleInternalAsync(module);
-            lock (_moduleInfos)
-            {
-                _moduleInfos.Remove(module);
-                _moduleNameMap.Remove(moduleName);
-            }
-            lock (_dependencyGraph)
-            {
-                _dependencyGraph.Remove(moduleName);
-                _libraryDependencyGraph.Remove(moduleName);
-            }
+            _modules.Remove(moduleName);
+            _dependencyGraph.Remove(moduleName);
+            _libraryDependencyGraph.Remove(moduleName);
             RebuildReverseGraph();
             RebuildLibraryReverseGraph();
             ModuleUnloaded?.Invoke(publicInfo);
@@ -1187,47 +1539,47 @@ namespace ModuleManagerLib
         #region 查询 API
 
         public ModuleStatus GetModuleStatus(string name)
-            => _moduleNameMap.TryGetValue(name, out var m) ? m.Status : ModuleStatus.NotFound;
+            => _modules.TryGet(name, out var m) ? m.Status : ModuleStatus.NotFound;
 
         public List<string> GetLoadedModuleNames()
-            => _moduleInfos.Where(m => m.Status == ModuleStatus.Running).Select(m => m.ModuleName).ToList();
+            => _modules.GetByStatus(ModuleStatus.Running).Select(m => m.ModuleName).ToList();
 
         public List<ModuleInfo> GetLoadedModules()
-            => _moduleInfos.Where(m => m.Status == ModuleStatus.Running).Select(m => m.ToPublic()).ToList();
+            => _modules.GetByStatus(ModuleStatus.Running).Select(m => m.ToPublic()).ToList();
 
         public List<string> GetAllModuleNames()
-            => _moduleInfos.Select(m => m.ModuleName).ToList();
+            => _modules.GetAllNames();
 
         public List<ModuleInfo> GetAllModules()
-            => _moduleInfos.Select(m => m.ToPublic()).ToList();
+            => _modules.GetAll().Select(m => m.ToPublic()).ToList();
 
         public List<string> GetModuleNamesByStatus(ModuleStatus status)
-            => _moduleInfos.Where(m => m.Status == status).Select(m => m.ModuleName).ToList();
+            => _modules.GetByStatus(status).Select(m => m.ModuleName).ToList();
 
         public ModuleInfo GetModuleInfo(string name)
-            => _moduleNameMap.TryGetValue(name, out var m) ? m.ToPublic() : null;
+            => _modules.TryGet(name, out var m) ? m.ToPublic() : null;
 
         public bool IsModuleLoaded(string name)
-            => _moduleNameMap.TryGetValue(name, out var m) && m.Status == ModuleStatus.Running;
+            => _modules.TryGet(name, out var m) && m.Status == ModuleStatus.Running;
 
         public List<string> GetModuleDependencies(string name)
-            => _dependencyGraph.TryGetValue(name, out var deps) ? deps.ToList() : new List<string>();
+            => _dependencyGraph.TryGet(name, out var deps) ? deps : new List<string>();
 
         public List<string> GetModuleLibraryDependencies(string name)
-            => _libraryDependencyGraph.TryGetValue(name, out var libs) ? libs.ToList() : new List<string>();
+            => _libraryDependencyGraph.TryGet(name, out var libs) ? libs : new List<string>();
 
         public List<string> GetModulesDependentOn(string name)
-            => _reverseDependencyGraph.TryGetValue(name, out var deps) ? deps.ToList() : new List<string>();
+            => _reverseDependencyGraph.TryGet(name, out var deps) ? deps : new List<string>();
 
         public List<string> GetLibrariesDependentOn(string libraryName)
         {
             string lib = libraryName.EndsWith(".dll") ? libraryName : libraryName + ".dll";
-            return _libraryReverseDependencyGraph.TryGetValue(lib, out var deps) ? deps.ToList() : new List<string>();
+            return _libraryReverseDependencyGraph.TryGet(lib, out var deps) ? deps : new List<string>();
         }
 
         public List<string> GetLoadingOrder()
         {
-            var sorted = TopologicalSort(_moduleInfos, _dependencyGraph);
+            var sorted = TopologicalSort(_modules.GetAll(), _dependencyGraph);
             return sorted?.Select(m => m.ModuleName).ToList() ?? new List<string>();
         }
 
@@ -1235,34 +1587,27 @@ namespace ModuleManagerLib
 
         #region Library API
 
-        public List<string> GetLoadedLibraries() { lock (_loadedLibraries) return _loadedLibraries.ToList(); }
-        public List<string> GetLoadedLibraryPaths() { lock (_loadedLibraries) return _loadedLibraryPaths.ToList(); }
-        public int GetLoadedLibraryCount() { lock (_loadedLibraries) return _loadedLibraries.Count; }
+        public List<string> GetLoadedLibraries() => _loadedLibraries.GetNames();
+        public List<string> GetLoadedLibraryPaths() => _loadedLibraries.GetPaths();
+        public int GetLoadedLibraryCount() => _loadedLibraries.Count;
         public bool IsLibraryLoaded(string name)
         {
             string lib = name.EndsWith(".dll") ? name : name + ".dll";
-            lock (_loadedLibraries) return _loadedLibraries.Contains(lib);
+            return _loadedLibraries.Contains(lib);
         }
 
         public bool UnloadLibrary(string libraryName)
         {
             string lib = libraryName.EndsWith(".dll") ? libraryName : libraryName + ".dll";
-            if (_libraryReverseDependencyGraph.TryGetValue(lib, out var deps) && deps.Count > 0)
+            if (_libraryReverseDependencyGraph.TryGet(lib, out var deps) && deps.Count > 0)
                 return false;
-            if (_libraryContexts.TryGetValue(lib, out var ctx))
-                ctx.Unload();
-            lock (_loadedLibraries)
+            if (_libraryContexts.TryRemove(lib, out var ctx))
             {
-                int idx = _loadedLibraries.IndexOf(lib);
-                if (idx != -1)
-                {
-                    _loadedLibraries.RemoveAt(idx);
-                    _loadedLibraryPaths.RemoveAt(idx);
-                }
+                try { ctx.Unload(); } catch { }
             }
-            _libraryContexts.Remove(lib);
+            _loadedLibraries.Remove(lib);
             LibraryUnloaded?.Invoke(lib);
-            for (int i = 0; i < 3; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); }
+            ForceGarbageCollection();
             return true;
         }
 
@@ -1270,56 +1615,50 @@ namespace ModuleManagerLib
 
         public void UnloadAllLibraries()
         {
-            var libs = _loadedLibraries.ToList();
-            foreach (var ctx in _libraryContexts.Values) ctx.Unload();
-            _libraryContexts.Clear();
-            lock (_loadedLibraries)
+            var libs = _loadedLibraries.GetNames();
+            foreach (var ctx in _libraryContexts.Values)
             {
-                _loadedLibraries.Clear();
-                _loadedLibraryPaths.Clear();
+                try { ctx.Unload(); } catch { }
             }
+            _libraryContexts.Clear();
+            _loadedLibraries.Clear();
             foreach (var lib in libs)
             {
                 LibraryUnloaded?.Invoke(lib);
             }
-            for (int i = 0; i < 3; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); }
+            ForceGarbageCollection();
         }
 
         public bool ReloadLibrary(string libraryName)
         {
             string lib = libraryName.EndsWith(".dll") ? libraryName : libraryName + ".dll";
-            string path = null;
-            lock (_loadedLibraries)
-            {
-                int idx = _loadedLibraries.IndexOf(lib);
-                if (idx != -1)
-                    path = _loadedLibraryPaths[idx];
-            }
+            var libInfo = _loadedLibraries.GetByName(lib);
+            string path = libInfo?.path;
+            
             if (path == null)
             {
                 path = Path.Combine(_libraryFolderPath, lib);
                 if (!File.Exists(path)) return false;
             }
+            
             UnloadLibrary(lib);
+            
             try
             {
                 var ctx = new AssemblyLoadContext(lib, true);
-                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-                byte[] data = new byte[fs.Length];
-                fs.Read(data, 0, data.Length);
-                using var ms = new MemoryStream(data);
-                ctx.LoadFromStream(ms);
-                Array.Clear(data, 0, data.Length);
-                _libraryContexts[lib] = ctx;
-                lock (_loadedLibraries)
-                {
-                    _loadedLibraries.Add(lib);
-                    _loadedLibraryPaths.Add(path);
-                }
+                ctx.Resolving += OnModuleContextResolving;
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, false);
+                ctx.LoadFromStream(fs);
+                _libraryContexts.TryAdd(lib, ctx);
+                _loadedLibraries.Add(lib, path);
                 LibraryLoaded?.Invoke(lib);
                 return true;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                LogError($"Failed to reload library {lib}", ex);
+                return false;
+            }
         }
 
         #endregion
@@ -1337,6 +1676,47 @@ namespace ModuleManagerLib
                 _currentProgress.Percentage = total == 0 ? 0 : (int)((double)completed / total * 100);
             }
             OnProgressUpdated?.Invoke(_currentProgress);
+        }
+
+        #endregion
+
+        #region 辅助方法
+
+        private static void LogError(string message, Exception ex)
+        {
+            // 可以在此添加日志记录逻辑
+            System.Diagnostics.Debug.WriteLine($"[ERROR] {message}: {ex?.Message}");
+        }
+
+        private static void ForceGarbageCollection()
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            
+            UnloadAllModulesAsync().GetAwaiter().GetResult();
+            UnloadAllLibraries();
+            
+            _serviceLock.EnterWriteLock();
+            try
+            {
+                _serviceContainer.Clear();
+                _namedServices.Clear();
+            }
+            finally
+            {
+                _serviceLock.ExitWriteLock();
+            }
+            
+            ForceGarbageCollection();
         }
 
         #endregion

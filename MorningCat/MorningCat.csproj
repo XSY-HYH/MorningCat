@@ -22,9 +22,6 @@
 		<Reference Include="ModuleManagerLib">
 			<HintPath>..\Lib\ModuleManagerLib.dll</HintPath>
 		</Reference>
-		<Reference Include="logs">
-			<HintPath>..\Lib\logs.dll</HintPath>
-		</Reference>
 		<Reference Include="MorningCat.PlatformAbstraction">
 			<HintPath>..\Lib\MorningCat.PlatformAbstraction.dll</HintPath>
 			<Private>true</Private>
@@ -43,6 +40,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\MorningCat.WebUI\MorningCat.WebUI.csproj" />
 		<ProjectReference Include="..\MorningCat.GUI\MorningCat.GUI.csproj" />
+		<ProjectReference Include="..\logs\logs.csproj" />
 	</ItemGroup>
 
 </Project>

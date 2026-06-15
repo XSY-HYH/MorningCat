@@ -34,10 +34,10 @@ namespace ModuleManagerLib
         public TResult? CallApi<TResult>(string pluginName, string apiName, params object[] args)
         {
             if (!_apis.TryGetValue(pluginName, out var pluginApis))
-                throw new InvalidOperationException($"插件 '{pluginName}' 未注册任何 API");
+                throw new InvalidOperationException($"插件'{pluginName}' 未注册任何 API");
 
             if (!pluginApis.TryGetValue(apiName, out var handler))
-                throw new InvalidOperationException($"插件 '{pluginName}' 未注册 API: {apiName}");
+                throw new InvalidOperationException($"插件'{pluginName}' 未注册 API: {apiName}");
 
             var result = handler.DynamicInvoke(args);
             if (result is TResult typed)
@@ -172,7 +172,7 @@ namespace ModuleManagerLib
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[PluginApiService] 事件处理器异常 ({pluginName}:{eventName}): {ex.InnerException?.Message ?? ex.Message}");
+                    Console.WriteLine($"[PluginApiService]事件处理器异常({pluginName}:{eventName}): {ex.InnerException?.Message ?? ex.Message}");
                 }
             }
         }

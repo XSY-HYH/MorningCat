@@ -11,8 +11,9 @@
 - [三、命令系统](#三命令系统)
 - [四、插件加载与依赖](#四插件加载与依赖)
 - [五、依赖注入](#五依赖注入)
-- [六、避坑索引（按症状速查）](#六避坑索引按症状速查)
-- [七、GroupVerificationPlugin 开发踩坑实录](#七groupverificationplugin-开发踩坑实录)
+- [六、日志系统](#六日志系统)
+- [七、避坑索引（按症状速查）](#七避坑索引按症状速查)
+- [八、GroupVerificationPlugin 开发踩坑实录](#八groupverificationplugin-开发踩坑实录)
 
 ---
 
@@ -525,7 +526,7 @@ public override IEnumerable<string> GetLibraryDependencies()
 | `MessageDistributionCore` | `MDC` | 消息分发核心，跨平台消息发送（推荐） |
 | `CommandRegistry` | `CommandRegistry` | 命令注册表 |
 | `PluginConfigManager` | `ConfigManager` | 插件配置管理器 |
-| `MorningCatBot` | `Bot` | 机器人主类 |
+| `MorningCatBot` | `MorningCatBot` | 机器人主类 |
 | `ModuleManager` | - | 模块管理器 |
 | `ConfigManager` | - | 主配置管理器（非插件配置） |
 | `PluginCommandAPI` | - | 插件命令 API |
@@ -536,7 +537,7 @@ public override IEnumerable<string> GetLibraryDependencies()
 
 - **类型匹配**：属性的类型必须精确匹配上表中的类型
 - **必须有 public set**：`{ get; private set; }` 不会被注入
-- **属性名无关**：可以叫 `Client` 也可以叫 `MyClient`，只要类型是 `OneBotClient`
+- **属性名无关**：可以叫 `Client` 也可以叫 `MyClient`，只要类型是 `OneBotClient`（但推荐使用约定名）
 
 ### 5.3 坑：不要直接使用 OneBotClient 发消息
 
@@ -574,9 +575,167 @@ await MDC.SendAsync(message, builder => builder.Text(text));
 
 依赖注入在 `Init()` 调用之前完成。所以 `Init()` 中可以安全使用注入的属性，但构造函数中不能（还是 null）。
 
+### 5.6 坑：属性名必须与约定一致
+
+虽然注入是按类型匹配的，但某些核心服务要求特定的属性名才能正确注入。**推荐严格按照约定命名**：
+
+| 服务类型 | 必须使用的属性名 |
+|----------|-----------------|
+| `MorningCatBot` | `MorningCatBot`（不是 `Bot`） |
+
+```csharp
+// 错误：使用 Bot 作为属性名
+public MorningCatBot Bot { get; set; }  // 注入失败
+
+// 正确：使用 MorningCatBot
+public MorningCatBot MorningCatBot { get; set; }  // 注入成功
+```
+
 ---
 
-## 六、避坑索引（按症状速查）
+## 六、日志系统
+
+### 6.1 日志格式
+
+框架日志输出格式为：
+
+```
+{Timestamp} - {Level} - [{Source}] [{FilePath}:{LineNumber}] - {Message}
+```
+
+**实际输出示例**：
+
+```
+2026-06-14 10:40:28,065 - INFO - [MessageHandling] [D:\Programming\C#\MorningCat\MorningCat\MorningCatBot.MessageHandling.cs:24] - 接受来自AAAAA盘羊唯一指定IDC云服务提供商（3624529230）, 群组: 1015987132 [OneBot]的消息：但这个快似了
+2026-06-14 10:40:28,065 - DEBUG - [MessageHandling] [D:\Programming\C#\MorningCat\MorningCat\MorningCatBot.MessageHandling.cs:27] - [1015987132]AAAAA盘羊唯一指定IDC云服务提供商: 但这个快似了
+2026-06-14 10:40:47,824 - DEBUG - [MessageHandling] [D:\Programming\C#\MorningCat\MorningCat\MDC\OneBotPlatformAdapter.cs:296] - [OneBot] 心跳，间隔: 30000ms
+```
+
+**补充说明**：
+- `FilePath` 显示的是**编译时的源代码完整路径**（如 `D:\Programming\C#\MorningCat\MorningCat\MorningCatBot.MessageHandling.cs`）
+- 这由 C# 的 `[CallerFilePath]` 特性决定，编译时会被替换为源文件的绝对路径
+
+### 6.2 API 速查
+
+| 方法 | 级别 | 说明 |
+|------|------|------|
+| `Log.Debug(msg)` | Debug | 调试信息 |
+| `Log.Info(msg)` | Info | 常规信息 |
+| `Log.Warning(msg)` | Warning | 警告信息 |
+| `Log.Error(msg)` | Error | 错误信息 |
+| `Log.Critical(msg)` | Critical | 致命错误 |
+| `Log.Exception(ex, msg)` | Error | 带异常的完整错误信息 |
+| `Log.Name(name)` | - | 设置当前日志来源名称 |
+| `Log.SetConsoleLevel(level)` | - | 设置控制台最低输出级别 |
+| `Log.SetFileLevel(level)` | - | 设置文件最低输出级别 |
+| `Log.SetLogDirectory(dir)` | - | 设置日志文件目录 |
+
+### 日志级别（从低到高）
+
+| 级别 | 值 | 说明 |
+|------|-----|------|
+| Debug | 0 | 调试信息 |
+| Info | 1 | 常规信息 |
+| Warning | 2 | 警告 |
+| Error | 3 | 错误 |
+| Critical | 4 | 致命错误 |
+| None | 5 | 不输出 |
+
+### 6.3 最简调用
+
+```csharp
+public override async Task Init()
+{
+    Log.Name("MyPlugin");
+    Log.Info("插件初始化开始");
+    Log.Debug("调试信息");
+    Log.Warning("警告信息");
+    Log.Error("错误信息");
+    Log.Exception(ex, "异常信息");
+    await Task.CompletedTask;
+}
+```
+
+### 6.4 ALC 隔离说明
+
+由于每个插件运行在独立的 `AssemblyLoadContext` 中，`Log` 静态类在每个 ALC 中有独立的实例。因此：
+
+- **不同插件的 `Log.Name()` 设置不会互相影响**
+- 每个插件可以安全地设置自己的日志来源，不用担心被其他插件覆盖
+
+```csharp
+// 插件 A（在 ALC-A 中）
+Log.Name("PluginA");
+Log.Info("消息A");  // 来源: PluginA
+
+// 插件 B（在 ALC-B 中）
+Log.Name("PluginB");
+Log.Info("消息B");  // 来源: PluginB
+// 插件 A 的日志来源仍然是 PluginA，不受影响
+```
+
+### 6.5 日志计数器
+
+框架维护了全局警告和错误计数：
+
+| 属性 | 说明 |
+|------|------|
+| `Log.WarningCount` | 累计警告数 |
+| `Log.ErrorCount` | 累计错误数 |
+| `Log.LastWarningMessage` | 最后一条警告消息 |
+| `Log.LastErrorMessage` | 最后一条错误消息 |
+
+### 6.6 日志输出事件
+
+```csharp
+// 可订阅日志输出事件（用于 WebUI 等）
+Log.OnLogOutput += (coloredMessage) => {
+    webSocket.Send(coloredMessage);
+};
+```
+
+### 6.7 坑：来源继承与覆盖
+
+**行为说明**：
+- 不设置 `Log.Name()` 时，来源会继承调用方的来源（如 `"Modules"`、`"MessageHandling"`）
+- 在同一实例中多次调用 `Log.Name()` 会覆盖之前的设置
+
+```csharp
+// 不设置时继承调用方来源
+Log.Info("消息");  // 来源: Modules（或继承自上层）
+
+// 设置后
+Log.Name("PluginA");
+Log.Info("消息1");  // 来源: PluginA
+
+// 再次调用会覆盖
+Log.Name("PluginB");
+Log.Info("消息2");  // 来源: PluginB（不再是 PluginA）
+```
+
+**最佳实践**：在插件 `Init()` 开头调用一次 `Log.Name()` 设置来源，不要重复调用。
+
+### 6.8 坑：异常日志应使用 Exception 方法
+
+```csharp
+// 不好：缺少堆栈信息
+catch (Exception ex)
+{
+    Log.Error($"操作失败: {ex.Message}");
+}
+
+// 好：包含完整异常信息
+catch (Exception ex)
+{
+    Log.Exception(ex, "操作失败");
+}
+```
+
+---
+
+## 七、避坑索引（按症状速查）
+
+*注意有些可能不是框架插件开发问题而是插件本身的逻辑错误，请注意区分*
 
 ### 插件加载类
 
@@ -664,11 +823,11 @@ await MDC.SendAsync(message, builder => builder.Text(text));
 
 ---
 
-## 七、GroupVerificationPlugin 开发踩坑实录
+## 八、GroupVerificationPlugin 开发踩坑实录
 
 以下是在开发群审核插件过程中遇到的所有坑，按类别整理。
 
-### 7.1 JSON 类型不匹配（最频繁的坑）
+### 8.1 JSON 类型不匹配（最频繁的坑）
 
 **症状**：`The JSON value could not be converted to System.String. Path: $.group_id`
 
@@ -706,7 +865,7 @@ public string GroupId { get; set; } = string.Empty;
 
 3. 前端 JS 确保发送字符串格式：`groupId: String(groupId)` 而非 `groupId: groupId`
 
-### 7.2 自动审核逻辑错误
+### 8.2 自动审核逻辑错误
 
 **症状**：开了 `AutoVerify=true`，但提交审核后仍然提示"请手动审核"，不会自动通过。
 
@@ -728,7 +887,8 @@ bool autoApproved = settings.AutoVerify
 1. 调用 `ApproveUserAsync` 将用户加入 approved_users
 2. 群消息显示"加入了群聊"而非"申请入群...请手动审核"
 
-### 7.3 群审核开启但 Web 显示"未开启"
+### 8.3 群审核开启但 Web 显示"未开启"
+
 
 **症状**：群已配置审核且 `Enabled=true`，但访问 Web 页面时提示"本群没有开启审核"。
 
@@ -736,7 +896,7 @@ bool autoApproved = settings.AutoVerify
 
 **解决方案**：确保所有群号统一使用字符串格式，配置加载和查询时都做 `ToString()` 处理。
 
-### 7.4 HttpListener Linux 兼容性
+### 8.4 HttpListener Linux 兼容性
 
 **症状**：Linux 上启动 HTTP 监听失败，报 "The request is not supported"。
 
@@ -744,7 +904,7 @@ bool autoApproved = settings.AutoVerify
 
 **解决方案**：使用 `http://+:{port}/` 通配前缀，Windows 和 Linux 都兼容。
 
-### 7.5 插件卸载时 HttpListener 已释放
+### 8.5 插件卸载时 HttpListener 已释放
 
 **症状**：插件卸载时抛出 "Cannot access a disposed object. Object name: 'System.Net.HttpListener'"。
 
@@ -757,7 +917,7 @@ try { _listener?.Stop(); } catch { }
 try { _listener?.Close(); } catch { }
 ```
 
-### 7.6 DI 属性名约定
+### 8.6 DI 属性名约定
 
 **症状**：`MorningCatBot` 属性为 null，依赖注入失败。
 
@@ -765,7 +925,7 @@ try { _listener?.Close(); } catch { }
 
 **解决方案**：严格按照文档中的约定属性名命名。虽然注入是按类型匹配的，但某些核心服务需要特定属性名才能正确注入。
 
-### 7.7 命名空间冲突
+### 8.7 命名空间冲突
 
 **症状**：`GroupJoinRequest is an ambiguous reference between OneBotLib.Models.GroupJoinRequest and MorningCat.PlatformAbstraction.GroupJoinRequest`。
 
@@ -773,7 +933,7 @@ try { _listener?.Close(); } catch { }
 
 **解决方案**：使用完全限定名 `MorningCat.PlatformAbstraction.GroupJoinRequest`。
 
-### 7.8 PlatformId 枚举与字符串转换
+### 8.8 PlatformId 枚举与字符串转换
 
 **症状**：`Cannot implicitly convert type 'PlatformId' to 'string'` 或 `cannot convert from 'string' to 'PlatformId'`。
 
@@ -789,7 +949,7 @@ Platform = PlatformId.OneBot.ToString()
 IsPlatformEnabled(Enum.Parse<PlatformId>(request.Platform))
 ```
 
-### 7.9 CommandScope 枚举值
+### 8.9 CommandScope 枚举值
 
 **症状**：`CommandScope 不包含 Any 的定义`。
 

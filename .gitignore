@@ -53,3 +53,6 @@ VideoDownloaderPlugin/
 # Large resource files
 MorningCat.PPC/Resources/*.zip
 MorningCatLaunch/mlc.zip
+
+# Publish output
+PublishOutput/

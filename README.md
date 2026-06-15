@@ -42,7 +42,7 @@ MorningCat/
 ├── MorningCat.PlatformAbstraction/ # Cross-platform models / 跨平台模型
 ├── MorningCat.GUI/                 # Electron GUI / 图形界面
 ├── MorningCat.WebUI/               # Web dashboard / Web 管理界面
-├── MorningCat.PPC/                 # Plugin project creator / 插件项目创建器
+├── MorningCat.PPC/                 # Plugin project creator (Experimental) / 插件项目创建器（实验性）
 ├── MorningCatLaunch/               # Launcher / 启动器
 ├── MorningCatLaunchCore/           # Update manager / 更新管理器
 ├── ModuleManager/                  # Module manager source / 模块管理器源码
@@ -165,6 +165,14 @@ await _mdc.SendAsync(message, builder => builder
 | `/plugin list` | List plugins / 列出插件 | GroupAdmin / 管理员 |
 | `/plugin enable <name>` | Enable plugin / 启用插件 | GroupAdmin / 管理员 |
 | `/plugin disable <name>` | Disable plugin / 禁用插件 | GroupAdmin / 管理员 |
+
+## Acknowledgments / 致谢
+
+- The WebUI frontend is adapted from the [NapCatQQ](https://github.com/NapNeko/NapCatQQ) project's WebUI source code. / WebUI 前端基于 [NapCatQQ](https://github.com/NapNeko/NapCatQQ) 项目的 WebUI 源码改编而来。
+
+## Notes / 备注
+
+- **MorningCat.PPC** is an experimental and incomplete project. It can be safely ignored. / MorningCat.PPC 为实验性且不完整的项目，可以忽略。
 
 ## License / 许可证
 
