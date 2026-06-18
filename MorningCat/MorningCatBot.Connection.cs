@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Logging;
 using MorningCat.Config;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -14,7 +15,7 @@ namespace MorningCat
             try
             {
                 Log.Name("MDC");
-                Log.Info("正在连接到消息平台...");
+                Log.Info(_i18n.T("connection.connecting"));
                 
                 var results = await _mdc.ConnectAllAsync();
                 
@@ -22,11 +23,11 @@ namespace MorningCat
                 {
                     if (kv.Value)
                     {
-                        Log.Info($"平台 {kv.Key} 连接成功");
+                        Log.Info(_i18n.T("connection.connected", kv.Key));
                     }
                     else
                     {
-                        Log.Error($"平台 {kv.Key} 连接失败");
+                        Log.Error(_i18n.T("connection.failed", kv.Key));
                     }
                 }
                 
@@ -41,22 +42,22 @@ namespace MorningCat
                         _isAuthenticated = await authTask;
                         if (_isAuthenticated)
                         {
-                            Log.Info("OneBot认证成功喵AWA");
+                            Log.Info(_i18n.T("connection.auth_success"));
                         }
                         else
                         {
-                            throw new Exception("OneBot登录验证失败，请检查token是否正确QAQ！");
+                            throw new Exception("OneBot login verification failed, please check token!");
                         }
                     }
                     else
                     {
-                        throw new TimeoutException("OneBot登录验证超时QAQ！");
+                        throw new TimeoutException("OneBot login verification timeout!");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"连接消息平台失败QAQ！: {ex.Message}");
+                Log.Error(_i18n.T("connection.platform_failed", ex.Message));
                 throw;
             }
         }

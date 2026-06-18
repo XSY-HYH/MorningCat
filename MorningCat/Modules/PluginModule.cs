@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Logging;
 using ModuleManagerLib;
 using MorningCat.Commands;
+using MorningCat.I18n;
 using MorningCat.PluginAPI;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
@@ -34,17 +35,17 @@ namespace MorningCat.Modules
 
         public async Task Init()
         {
-            Log.Debug("插件管理模块初始化中...");
+            Log.Debug(I18nManager.S("plugin_module.initializing"));
 
             if (_mdc == null || _commandRegistry == null || _moduleManager == null)
             {
-                Log.Debug("依赖注入不完整无法初始化插件管理模块");
+                Log.Debug(I18nManager.S("plugin_module.di_incomplete"));
                 return;
             }
 
             RegisterPluginCommand();
 
-            Log.Info("插件管理模块初始化完成!");
+            Log.Info(I18nManager.S("plugin_module.initialized"));
             await Task.CompletedTask;
         }
 
@@ -55,14 +56,14 @@ namespace MorningCat.Modules
                 new CommandParameter
                 {
                     Name = "action",
-                    Description = "操作: list/uninstall/view/disable/enable/library",
+                    Description = I18nManager.S("plugin_module.param_action"),
                     IsRequired = false,
                     Type = ParameterType.String
                 },
                 new CommandParameter
                 {
                     Name = "id",
-                    Description = "插件ID/类名",
+                    Description = I18nManager.S("plugin_module.param_id"),
                     IsRequired = false,
                     Type = ParameterType.String
                 }
@@ -70,8 +71,8 @@ namespace MorningCat.Modules
 
             var success = _commandRegistry.RegisterCommand(
                 "plugin",
-                "插件管理",
-                "plugin 或 list 列出所有插件\nplugin view <ID> 查看插件详情\nplugin uninstall <ID> 卸载插件\nplugin disable list 列出已禁用插件\nplugin disable <类名> 禁用插件\nplugin enable <类名> 启用插件\nplugin library list 列出已加载的库",
+                I18nManager.S("plugin_module.desc"),
+                I18nManager.S("plugin_module.help_text"),
                 subParams,
                 HandlePluginCommand,
                 "PluginModule",
@@ -82,11 +83,11 @@ namespace MorningCat.Modules
 
             if (success)
             {
-                Log.Info("plugin命令注册成功");
+                Log.Info(I18nManager.S("plugin_module.registered"));
             }
             else
             {
-                Log.Error("plugin命令注册失败");
+                Log.Error(I18nManager.S("plugin_module.register_failed"));
             }
         }
 
@@ -123,8 +124,11 @@ namespace MorningCat.Modules
                 case "library":
                     await HandleLibraryCommand(message, parameters);
                     break;
+                case "install":
+                    await InstallPluginAsync(message, parameters);
+                    break;
                 default:
-                    await SendMessageAsync(message, $"未知操作:{action}\n可用操作: list, view, uninstall, disable, enable, library");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.unknown_action", action));
                     break;
             }
         }
@@ -132,15 +136,16 @@ namespace MorningCat.Modules
         private async Task SendPluginHelpAsync(PlatformMessage message)
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("插件管理命令帮助:");
+            sb.AppendLine(I18nManager.S("plugin_module.help_title"));
             sb.AppendLine();
-            sb.AppendLine("/plugin list - 列出所有插件");
-            sb.AppendLine("/plugin view <ID> - 查看插件详情");
-            sb.AppendLine("/plugin uninstall <ID> - 卸载插件");
-            sb.AppendLine("/plugin disable list - 列出已禁用插件");
-            sb.AppendLine("/plugin disable <类名> - 禁用插件");
-            sb.AppendLine("/plugin enable <类名> - 启用插件");
-            sb.AppendLine("/plugin library list - 列出已加载的库");
+            sb.AppendLine(I18nManager.S("plugin_module.help_list"));
+            sb.AppendLine(I18nManager.S("plugin_module.help_view"));
+            sb.AppendLine(I18nManager.S("plugin_module.help_uninstall"));
+            sb.AppendLine(I18nManager.S("plugin_module.help_disable_list"));
+            sb.AppendLine(I18nManager.S("plugin_module.help_disable"));
+            sb.AppendLine(I18nManager.S("plugin_module.help_enable"));
+            sb.AppendLine(I18nManager.S("plugin_module.help_library"));
+            sb.AppendLine(I18nManager.S("plugin_module.help_install"));
             await SendMessageAsync(message, sb.ToString());
         }
 
@@ -148,7 +153,7 @@ namespace MorningCat.Modules
         {
             if (!parameters.TryGetValue("id", out var subAction) || string.IsNullOrEmpty(subAction))
             {
-                await SendMessageAsync(message, "请指定库操作");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.specify_library_action"));
                 return;
             }
 
@@ -160,7 +165,7 @@ namespace MorningCat.Modules
                     await ListLibrariesAsync(message);
                     break;
                 default:
-                    await SendMessageAsync(message, $"未知库操作:{subAction}");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.unknown_library_action", subAction));
                     break;
             }
         }
@@ -171,12 +176,12 @@ namespace MorningCat.Modules
 
             if (libraryPaths == null || libraryPaths.Count == 0)
             {
-                await SendMessageAsync(message, "滚母");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.no_libraries"));
                 return;
             }
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"已加载库列表 (共 {libraryPaths.Count} 个):");
+            sb.AppendLine(I18nManager.S("plugin_module.library_list", libraryPaths.Count));
             sb.AppendLine();
 
             int index = 1;
@@ -217,12 +222,12 @@ namespace MorningCat.Modules
 
             if (total == 0)
             {
-                await SendMessageAsync(message, "滚母");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.no_libraries"));
                 return;
             }
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"已加载插件列表 (共 {total} 个):");
+            sb.AppendLine(I18nManager.S("plugin_module.plugin_list", total));
             sb.AppendLine();
 
             int index = 1;
@@ -230,19 +235,19 @@ namespace MorningCat.Modules
             {
                 var status = module.Status switch
                 {
-                    ModuleStatus.Running => "✓ 运行中",
-                    ModuleStatus.Error => "✗ 加载失败",
-                    ModuleStatus.Unloaded => "- 已卸载",
-                    ModuleStatus.Initializing => "○ 初始化中",
-                    ModuleStatus.Scanned => "○ 待初始化",
-                    _ => "? 未知"
+                    ModuleStatus.Running => I18nManager.S("plugin_module.status_running"),
+                    ModuleStatus.Error => I18nManager.S("plugin_module.status_error"),
+                    ModuleStatus.Unloaded => I18nManager.S("plugin_module.status_unloaded"),
+                    ModuleStatus.Initializing => I18nManager.S("plugin_module.status_initializing"),
+                    ModuleStatus.Scanned => I18nManager.S("plugin_module.status_scanned"),
+                    _ => I18nManager.S("plugin_module.status_unknown")
                 };
 
                 var isBuiltin = IsBuiltinModule(module.ModuleName);
-                var builtinTag = isBuiltin ? " [内置]" : "";
+                var builtinTag = isBuiltin ? I18nManager.S("plugin_module.builtin_tag") : "";
 
                 sb.AppendLine($"{index}. {module.ModuleName}{builtinTag}");
-                sb.AppendLine($"   状态: {status}");
+                sb.AppendLine(I18nManager.S("plugin_module.status_label", status));
 
                 index++;
             }
@@ -250,7 +255,7 @@ namespace MorningCat.Modules
             foreach (var disabledName in disabledPlugins)
             {
                 sb.AppendLine($"{index}. {disabledName}");
-                sb.AppendLine($"   状态: ✗ 已禁用");
+                sb.AppendLine(I18nManager.S("plugin_module.status_label", I18nManager.S("plugin_module.status_disabled")));
 
                 index++;
             }
@@ -265,13 +270,13 @@ namespace MorningCat.Modules
         {
             if (!parameters.TryGetValue("id", out var idStr) || string.IsNullOrEmpty(idStr))
             {
-                await SendMessageAsync(message, "请指定插件ID\n用法: /plugin view <ID>");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.specify_plugin_id", "view"));
                 return;
             }
 
             if (!int.TryParse(idStr, out int id) || id < 1)
             {
-                await SendMessageAsync(message, "ID必须是正整数");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.id_must_be_positive"));
                 return;
             }
 
@@ -300,7 +305,7 @@ namespace MorningCat.Modules
 
             if (id > total)
             {
-                await SendMessageAsync(message, $"插件ID {id} 不存在");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.plugin_not_found", id));
                 return;
             }
 
@@ -309,30 +314,30 @@ namespace MorningCat.Modules
                 var module = allModules[id - 1];
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"插件详情:");
+                sb.AppendLine(I18nManager.S("plugin_module.plugin_detail"));
                 sb.AppendLine();
-                sb.AppendLine($"名称: {module.ModuleName}");
-                sb.AppendLine($"状态: {module.Status}");
-                sb.AppendLine($"类型: {module.ModuleType?.FullName ?? "未知"}");
+                sb.AppendLine(I18nManager.S("plugin_module.name_label", module.ModuleName));
+                sb.AppendLine(I18nManager.S("plugin_module.status_detail", module.Status));
+                sb.AppendLine(I18nManager.S("plugin_module.type_label", module.ModuleType?.FullName ?? "未知"));
                 
                 var displayPath = GetRelativePath(module.AssemblyPath);
-                sb.AppendLine($"程序集: {displayPath}");
+                sb.AppendLine(I18nManager.S("plugin_module.assembly_label", displayPath));
 
                 if (module.ModuleInstance != null)
                 {
-                    sb.AppendLine($"实例: 已创建");
+                    sb.AppendLine(I18nManager.S("plugin_module.instance_created"));
                 }
 
                 var deps = _moduleManager.GetModuleDependencies(module.ModuleName);
                 if (deps != null && deps.Count > 0)
                 {
-                    sb.AppendLine($"依赖: {string.Join(", ", deps)}");
+                    sb.AppendLine(I18nManager.S("plugin_module.deps_label", string.Join(", ", deps)));
                 }
 
                 var dependents = _moduleManager.GetModulesDependentOn(module.ModuleName);
                 if (dependents != null && dependents.Count > 0)
                 {
-                    sb.AppendLine($"被依赖: {string.Join(", ", dependents)}");
+                    sb.AppendLine(I18nManager.S("plugin_module.dependents_label", string.Join(", ", dependents)));
                 }
 
                 if (_bot != null)
@@ -341,15 +346,15 @@ namespace MorningCat.Modules
                     if (metadata != null)
                     {
                         sb.AppendLine();
-                        sb.AppendLine("--- 元数据 ---");
+                        sb.AppendLine(I18nManager.S("plugin_module.metadata_section"));
                         if (!string.IsNullOrEmpty(metadata.DisplayName))
-                            sb.AppendLine($"显示名称: {metadata.DisplayName}");
+                            sb.AppendLine(I18nManager.S("plugin_module.display_name", metadata.DisplayName));
                         if (!string.IsNullOrEmpty(metadata.Author))
-                            sb.AppendLine($"作者: {metadata.Author}");
+                            sb.AppendLine(I18nManager.S("plugin_module.author", metadata.Author));
                         if (!string.IsNullOrEmpty(metadata.Website))
-                            sb.AppendLine($"网站: {metadata.Website}");
+                            sb.AppendLine(I18nManager.S("plugin_module.website", metadata.Website));
                         if (!string.IsNullOrEmpty(metadata.Description))
-                            sb.AppendLine($"描述: {metadata.Description}");
+                            sb.AppendLine(I18nManager.S("plugin_module.description", metadata.Description));
                     }
                 }
 
@@ -361,13 +366,13 @@ namespace MorningCat.Modules
                 var disabledPlugin = disabledPlugins[disabledIndex];
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"插件详情:");
+                sb.AppendLine(I18nManager.S("plugin_module.plugin_detail"));
                 sb.AppendLine();
-                sb.AppendLine($"名称: {disabledPlugin.Name}");
-                sb.AppendLine($"状态: 已禁用");
+                sb.AppendLine(I18nManager.S("plugin_module.name_label", disabledPlugin.Name));
+                sb.AppendLine(I18nManager.S("plugin_module.status_disabled_label"));
                 
                 var displayPath = GetRelativePath(disabledPlugin.Path);
-                sb.AppendLine($"程序集: {displayPath}");
+                sb.AppendLine(I18nManager.S("plugin_module.assembly_label", displayPath));
 
                 await SendMessageAsync(message, sb.ToString());
             }
@@ -377,20 +382,20 @@ namespace MorningCat.Modules
         {
             if (!parameters.TryGetValue("id", out var idStr) || string.IsNullOrEmpty(idStr))
             {
-                await SendMessageAsync(message, "请指定插件ID\n用法: /plugin uninstall <ID>");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.specify_plugin_id", "uninstall"));
                 return;
             }
 
             if (!int.TryParse(idStr, out int id) || id < 1)
             {
-                await SendMessageAsync(message, "ID必须是正整数");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.id_must_be_positive"));
                 return;
             }
 
             var allModules = _moduleManager.GetAllModules();
             var modulesDir = Config.ConfigManager.GetCorrectedPath("Modules");
             
-            Log.Debug($"[Uninstall] 目标ID: {id}, 已加载模块数: {allModules.Count}");
+            Log.Debug(I18nManager.S("plugin_module.uninstall_target", id, allModules.Count));
             
             var disabledPlugins = new List<(string Name, string Path)>();
             try
@@ -410,81 +415,81 @@ namespace MorningCat.Modules
             {
             }
 
-            Log.Debug($"[Uninstall] 禁用插件数: {disabledPlugins.Count}");
+            Log.Debug(I18nManager.S("plugin_module.uninstall_disabled_count", disabledPlugins.Count));
             var total = allModules.Count + disabledPlugins.Count;
 
             if (id > total)
             {
-                await SendMessageAsync(message, $"插件ID {id} 不存在");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.plugin_not_found", id));
                 return;
             }
 
             if (id <= allModules.Count)
             {
                 var module = allModules[id - 1];
-                Log.Debug($"[Uninstall] 目标插件: {module.ModuleName}, 状态: {module.Status}, 路径: {module.AssemblyPath}");
+                Log.Debug(I18nManager.S("plugin_module.uninstall_target_plugin", module.ModuleName, module.Status, module.AssemblyPath));
 
                 if (IsBuiltinModule(module.ModuleName))
                 {
-                    await SendMessageAsync(message, "无法卸载内置模块");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.cannot_unload_builtin"));
                     return;
                 }
 
                 var dependents = _moduleManager.GetModulesDependentOn(module.ModuleName);
                 if (dependents != null && dependents.Count > 0)
                 {
-                    await SendMessageAsync(message, $"无法卸载: 以下插件依赖此模块:\n{string.Join("\n", dependents)}");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.cannot_unload_dependent", string.Join("\n", dependents)));
                     return;
                 }
 
                 try
                 {
-                    Log.Debug($"[Uninstall] 尝试卸载模块...");
+                    Log.Debug(I18nManager.S("plugin_module.uninstall_trying"));
                     var success = await _moduleManager.UnloadModuleAsync(module.ModuleName);
-                    Log.Debug($"[Uninstall] 卸载结果: {success}");
+                    Log.Debug(I18nManager.S("plugin_module.uninstall_result", success));
 
                     if (success)
                     {
                         _commandRegistry.UnregisterModuleCommands(module.ModuleName);
-                        Log.Debug($"[Uninstall] 已注销命令");
-                        await SendMessageAsync(message, $"插件 {module.ModuleName} 已卸载");
+                        Log.Debug(I18nManager.S("plugin_module.uninstall_commands_unregistered"));
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.unloaded", module.ModuleName));
                     }
                     else
                     {
-                        await SendMessageAsync(message, $"卸载插件 {module.ModuleName} 失败");
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.unload_failed", module.ModuleName));
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug($"[Uninstall] 错误: {ex.Message}");
-                    await SendMessageAsync(message, $"卸载插件时发生错误:\n{ex.Message}");
+                    Log.Debug(I18nManager.S("plugin_module.uninstall_error", ex.Message));
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.unload_error", ex.Message));
                 }
             }
             else
             {
                 var disabledIndex = id - allModules.Count - 1;
                 var disabledPlugin = disabledPlugins[disabledIndex];
-                Log.Debug($"[Uninstall] 目标是禁用列表中的插件: {disabledPlugin.Name}, 路径: {disabledPlugin.Path}");
+                Log.Debug(I18nManager.S("plugin_module.uninstall_disabled_target", disabledPlugin.Name, disabledPlugin.Path));
 
                 try
                 {
                     if (File.Exists(disabledPlugin.Path))
                     {
-                        Log.Debug($"[Uninstall] 文件存在，尝试删除...");
+                        Log.Debug(I18nManager.S("plugin_module.uninstall_file_exists_deleting"));
                         File.Delete(disabledPlugin.Path);
-                        Log.Debug($"[Uninstall] 删除成功");
-                        await SendMessageAsync(message, $"插件 {disabledPlugin.Name} 已删除");
+                        Log.Debug(I18nManager.S("plugin_module.uninstall_delete_success"));
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.deleted", disabledPlugin.Name));
                     }
                     else
                     {
-                        Log.Debug($"[Uninstall] 文件不存在");
-                        await SendMessageAsync(message, $"插件文件不存在");
+                        Log.Debug(I18nManager.S("plugin_module.uninstall_file_not_exist"));
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.file_not_exist"));
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug($"[Uninstall] 错误: {ex.Message}");
-                    await SendMessageAsync(message, $"删除插件时发生错误:\n{ex.Message}");
+                    Log.Debug(I18nManager.S("plugin_module.uninstall_error", ex.Message));
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.delete_error", ex.Message));
                 }
             }
         }
@@ -493,7 +498,7 @@ namespace MorningCat.Modules
         {
             if (!parameters.TryGetValue("id", out var arg) || string.IsNullOrEmpty(arg))
             {
-                await SendMessageAsync(message, "请指定插件名或使用 list 查看已禁用列表\n用法: /plugin disable <类名>\n用法: /plugin disable list");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.specify_disable_target"));
                 return;
             }
 
@@ -509,27 +514,27 @@ namespace MorningCat.Modules
 
             if (module == null)
             {
-                await SendMessageAsync(message, $"插件 {className} 不存在");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.plugin_not_exist", className));
                 return;
             }
 
-            Log.Debug($"[Disable] 目标插件: {module.ModuleName}, 状态: {module.Status}, 路径: {module.AssemblyPath}");
+            Log.Debug(I18nManager.S("plugin_module.disable_target", module.ModuleName, module.Status, module.AssemblyPath));
 
             if (IsBuiltinModule(module.ModuleName))
             {
-                await SendMessageAsync(message, "无法禁用内置模块");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.cannot_disable_builtin"));
                 return;
             }
 
             if (string.IsNullOrEmpty(module.AssemblyPath))
             {
-                await SendMessageAsync(message, "无法禁用: 插件路径无效");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.invalid_plugin_path"));
                 return;
             }
 
             if (module.AssemblyPath.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase))
             {
-                await SendMessageAsync(message, $"插件 {module.ModuleName} 已经被禁用");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.already_disabled", module.ModuleName));
                 return;
             }
 
@@ -537,43 +542,43 @@ namespace MorningCat.Modules
             {
                 if (module.Status == ModuleStatus.Running)
                 {
-                    Log.Debug($"[Disable] 插件正在运行，尝试卸载...");
+                    Log.Debug(I18nManager.S("plugin_module.disable_unloading"));
                     var success = await _moduleManager.UnloadModuleAsync(module.ModuleName);
-                    Log.Debug($"[Disable] 卸载结果: {success}");
+                    Log.Debug(I18nManager.S("plugin_module.disable_unload_result", success));
                     if (success)
                     {
                         _commandRegistry.UnregisterModuleCommands(module.ModuleName);
-                        Log.Debug($"[Disable] 已注销命令");
+                        Log.Debug(I18nManager.S("plugin_module.disable_commands_unregistered"));
                     }
                 }
 
                 var disabledPath = module.AssemblyPath + ".disabled";
-                Log.Debug($"[Disable] 检查文件: {module.AssemblyPath}");
+                Log.Debug(I18nManager.S("plugin_module.disable_check_file", module.AssemblyPath));
                 if (File.Exists(module.AssemblyPath))
                 {
-                    Log.Debug($"[Disable] 文件存在，尝试重命名为: {disabledPath}");
+                    Log.Debug(I18nManager.S("plugin_module.disable_rename_to", disabledPath));
                     try
                     {
                         File.Move(module.AssemblyPath, disabledPath);
-                        Log.Debug($"[Disable] 重命名成功");
-                        await SendMessageAsync(message, $"插件 {module.ModuleName} 已禁用\n重启后将不会加载此插件");
+                        Log.Debug(I18nManager.S("plugin_module.disable_rename_success"));
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.disabled", module.ModuleName));
                     }
                     catch (IOException ex)
                     {
-                        Log.Debug($"[Disable] 文件被占用: {ex.Message}，创建标记文件");
+                        Log.Debug(I18nManager.S("plugin_module.disable_file_locked", ex.Message));
                         File.WriteAllText(disabledPath, "");
-                        await SendMessageAsync(message, $"插件 {module.ModuleName} 已标记为禁用\n文件被占用，将在重启后完成禁用");
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.disabled_marked", module.ModuleName));
                     }
                 }
                 else
                 {
-                    Log.Debug($"[Disable] 文件不存在");
-                    await SendMessageAsync(message, $"插件文件不存在，无法禁用");
+                    Log.Debug(I18nManager.S("plugin_module.disable_file_not_exist"));
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.disable_file_not_exist"));
                 }
             }
             catch (Exception ex)
             {
-                await SendMessageAsync(message, $"禁用插件时发生错误:\n{ex.Message}");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.disable_error", ex.Message));
             }
         }
 
@@ -601,12 +606,12 @@ namespace MorningCat.Modules
 
             if (disabledPlugins.Count == 0)
             {
-                await SendMessageAsync(message, "没有已禁用的插件");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.no_disabled"));
                 return;
             }
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"已禁用插件列表 (共 {disabledPlugins.Count} 个):");
+            sb.AppendLine(I18nManager.S("plugin_module.disabled_list", disabledPlugins.Count));
             sb.AppendLine();
 
             int index = 1;
@@ -619,18 +624,67 @@ namespace MorningCat.Modules
             await SendMessageAsync(message, sb.ToString());
         }
 
+        private async Task InstallPluginAsync(PlatformMessage message, Dictionary<string, string> parameters)
+        {
+            if (!parameters.TryGetValue("id", out var fileName) || string.IsNullOrEmpty(fileName))
+            {
+                await SendMessageAsync(message, I18nManager.S("plugin_module.install_specify_file"));
+                return;
+            }
+
+            if (!fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                fileName += ".dll";
+            }
+
+            var modulesDir = Config.ConfigManager.GetCorrectedPath("Modules");
+            var dllPath = Path.Combine(modulesDir, fileName);
+
+            if (!File.Exists(dllPath))
+            {
+                await SendMessageAsync(message, I18nManager.S("plugin_module.install_file_not_found", fileName));
+                return;
+            }
+
+            var assemblyName = Path.GetFileNameWithoutExtension(fileName);
+            var allModules = _moduleManager.GetAllModules();
+            if (allModules.Any(m => m.ModuleName == assemblyName || m.AssemblyPath?.EndsWith(fileName, StringComparison.OrdinalIgnoreCase) == true))
+            {
+                await SendMessageAsync(message, I18nManager.S("plugin_module.install_already_loaded", fileName));
+                return;
+            }
+
+            try
+            {
+                var loadResult = await _moduleManager.DynamicLoadModuleAsync(dllPath);
+                if (loadResult.Success)
+                {
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.install_success", fileName));
+                }
+                else
+                {
+                    var errors = string.Join("\n", loadResult.Errors);
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.install_failed", fileName, errors));
+                }
+            }
+            catch (Exception ex)
+            {
+                await SendMessageAsync(message, I18nManager.S("plugin_module.install_error", fileName, ex.Message));
+            }
+        }
+
         private async Task EnablePluginAsync(PlatformMessage message, Dictionary<string, string> parameters)
         {
             if (!parameters.TryGetValue("id", out var className) || string.IsNullOrEmpty(className))
             {
-                await SendMessageAsync(message, "请指定插件类名\n用法: /plugin enable <类名>");
+                await SendMessageAsync(message, I18nManager.S("plugin_module.specify_enable_target"));
                 return;
             }
 
             var allModules = _moduleManager.GetAllModules();
             var modulesDir = Config.ConfigManager.GetCorrectedPath("Modules");
             
-            Log.Debug($"[Enable] 目标类名: {className}");
+            Log.Debug(I18nManager.S("plugin_module.enable_target_class", className));
             
             var disabledPlugins = new List<(string Name, string Path)>();
             try
@@ -653,17 +707,17 @@ namespace MorningCat.Modules
             var module = allModules.FirstOrDefault(m => m.ModuleName == className);
             if (module != null)
             {
-                Log.Debug($"[Enable] 找到已加载的插件: {module.ModuleName}, 路径: {module.AssemblyPath}");
+                Log.Debug(I18nManager.S("plugin_module.enable_found_loaded", module.ModuleName, module.AssemblyPath));
 
                 if (IsBuiltinModule(module.ModuleName))
                 {
-                    await SendMessageAsync(message, "内置模块无需启用");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.builtin_no_need_enable"));
                     return;
                 }
 
                 if (string.IsNullOrEmpty(module.AssemblyPath))
                 {
-                    await SendMessageAsync(message, "无法启用: 插件路径无效");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.enable_invalid_path"));
                     return;
                 }
 
@@ -671,33 +725,33 @@ namespace MorningCat.Modules
                 {
                     var disabledPath = module.AssemblyPath;
                     var normalPath = module.AssemblyPath.Substring(0, module.AssemblyPath.Length - ".disabled".Length);
-                    Log.Debug($"[Enable] 禁用路径: {disabledPath}");
-                    Log.Debug($"[Enable] 目标路径: {normalPath}");
+                    Log.Debug(I18nManager.S("plugin_module.enable_disabled_path", disabledPath));
+                    Log.Debug(I18nManager.S("plugin_module.enable_target_path", normalPath));
 
                     try
                     {
                         if (File.Exists(disabledPath))
                         {
-                            Log.Debug($"[Enable] 文件存在，尝试重命名...");
+                            Log.Debug(I18nManager.S("plugin_module.enable_file_exists_renaming"));
                             File.Move(disabledPath, normalPath);
-                            Log.Debug($"[Enable] 重命名成功");
-                            await SendMessageAsync(message, $"插件 {module.ModuleName} 已启用\n使用 /restart 重启后生效");
+                            Log.Debug(I18nManager.S("plugin_module.enable_rename_success"));
+                            await SendMessageAsync(message, I18nManager.S("plugin_module.enabled", module.ModuleName));
                         }
                         else
                         {
-                            Log.Debug($"[Enable] 文件不存在");
-                            await SendMessageAsync(message, $"插件文件不存在，无法启用");
+                            Log.Debug(I18nManager.S("plugin_module.enable_file_not_exist"));
+                            await SendMessageAsync(message, I18nManager.S("plugin_module.enable_file_not_exist"));
                         }
                     }
                     catch (Exception ex)
                     {
-                        Log.Debug($"[Enable] 错误: {ex.Message}");
-                        await SendMessageAsync(message, $"启用插件时发生错误:\n{ex.Message}");
+                        Log.Debug(I18nManager.S("plugin_module.enable_error", ex.Message));
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.enable_error", ex.Message));
                     }
                 }
                 else
                 {
-                    await SendMessageAsync(message, $"插件 {module.ModuleName} 未被禁用");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.not_disabled", module.ModuleName));
                 }
             }
             else
@@ -705,36 +759,36 @@ namespace MorningCat.Modules
                 var disabledPlugin = disabledPlugins.FirstOrDefault(p => p.Name == className);
                 if (disabledPlugin.Name == null)
                 {
-                    await SendMessageAsync(message, $"插件 {className} 不存在");
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.plugin_not_exist", className));
                     return;
                 }
 
-                Log.Debug($"[Enable] 找到禁用列表中的插件: {disabledPlugin.Name}, 路径: {disabledPlugin.Path}");
+                Log.Debug(I18nManager.S("plugin_module.enable_found_disabled", disabledPlugin.Name, disabledPlugin.Path));
 
                 var disabledPath = disabledPlugin.Path;
                 var normalPath = disabledPath.Substring(0, disabledPath.Length - ".disabled".Length);
-                Log.Debug($"[Enable] 禁用路径: {disabledPath}");
-                Log.Debug($"[Enable] 目标路径: {normalPath}");
+                Log.Debug(I18nManager.S("plugin_module.enable_disabled_path", disabledPath));
+                Log.Debug(I18nManager.S("plugin_module.enable_target_path", normalPath));
 
                 try
                 {
                     if (File.Exists(disabledPath))
                     {
-                        Log.Debug($"[Enable] 文件存在，尝试重命名...");
+                        Log.Debug(I18nManager.S("plugin_module.enable_file_exists_renaming"));
                         File.Move(disabledPath, normalPath);
-                        Log.Debug($"[Enable] 重命名成功");
-                        await SendMessageAsync(message, $"插件 {disabledPlugin.Name} 已启用\n使用 /restart 重启后生效");
+                        Log.Debug(I18nManager.S("plugin_module.enable_rename_success"));
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.enabled", disabledPlugin.Name));
                     }
                     else
                     {
-                        Log.Debug($"[Enable] 文件不存在");
-                        await SendMessageAsync(message, $"插件文件不存在，无法启用");
+                        Log.Debug(I18nManager.S("plugin_module.enable_file_not_exist_log"));
+                        await SendMessageAsync(message, I18nManager.S("plugin_module.enable_file_not_exist"));
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug($"[Enable] 错误: {ex.Message}");
-                    await SendMessageAsync(message, $"启用插件时发生错误:\n{ex.Message}");
+                    Log.Debug(I18nManager.S("plugin_module.enable_error_log", ex.Message));
+                    await SendMessageAsync(message, I18nManager.S("plugin_module.enable_error", ex.Message));
                 }
             }
         }
@@ -747,7 +801,7 @@ namespace MorningCat.Modules
         private string GetRelativePath(string absolutePath)
         {
             if (string.IsNullOrEmpty(absolutePath))
-                return "内置模块";
+                return I18nManager.S("plugin_module.builtin_module");
 
             try
             {
@@ -780,9 +834,9 @@ namespace MorningCat.Modules
 
         public async Task Exit()
         {
-            Log.Info("插件管理模块正在清理...");
+            Log.Info(I18nManager.S("plugin_module.cleaning"));
             _commandRegistry?.UnregisterCommand("plugin");
-            Log.Info("插件管理模块清理完成");
+            Log.Info(I18nManager.S("plugin_module.cleaned"));
             await Task.CompletedTask;
         }
     }

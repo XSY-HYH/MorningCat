@@ -23,6 +23,7 @@ import FileManager from '@/controllers/file_manager';
 import { applyFont, colorKeys, generateTheme, loadTheme, updateFontCache } from '@/utils/theme';
 
 import WebUIManager from '@/controllers/webui_manager';
+import useI18n from '@/hooks/use-i18n';
 
 export type PreviewThemeCardProps = {
   theme: ThemeInfo;
@@ -53,6 +54,7 @@ const colors = [
 ];
 
 function PreviewThemeCard ({ theme, onPreview, isSelected }: PreviewThemeCardProps) {
+  const { t } = useI18n();
   const style = document.createElement('style');
   style.innerHTML = generateTheme(theme.theme, theme.name);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -88,7 +90,7 @@ function PreviewThemeCard ({ theme, onPreview, isSelected }: PreviewThemeCardPro
         </div>
         <div className='text-xs flex items-center gap-1 text-primary-300'>
           <FaUserAstronaut />
-          {theme.author ?? '未知'}
+          {theme.author ?? t('webui.theme.unknown')}
         </div>
         <div className='text-xs text-primary-200 whitespace-nowrap overflow-hidden text-ellipsis w-full'>{theme.description}</div>
       </CardHeader>
@@ -134,12 +136,13 @@ const isThemeColorsEqual = (a: ThemeConfig, b: ThemeConfig): boolean => {
 
 // 字体模式显示名称映射
 const fontModeNames: Record<string, string> = {
-  aacute: 'Aa 偷吃可爱长大的',
-  system: '系统默认',
-  custom: '自定义字体',
+  aacute: 'Aa Cute Font',
+  system: 'System Default',
+  custom: 'Custom Font',
 };
 
 const ThemeConfigCard = () => {
+  const { t } = useI18n();
   const { data, loading, error, refreshAsync } = useRequest(
     WebUIManager.getThemeConfig
   );
@@ -237,21 +240,21 @@ const ThemeConfigCard = () => {
         updateFontCache(formData.theme.fontMode);
       }
       setHasUnsavedChanges(false);
-      toast.success('保存成功');
+      toast.success(t('webui.theme.save_success'));
       loadTheme();
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`保存失败: ${msg}`);
+      toast.error(t('webui.theme.save_failed', msg));
     }
   });
 
   const onRefresh = async () => {
     try {
       await refreshAsync();
-      toast.success('刷新成功');
+      toast.success(t('webui.theme.refresh_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`刷新失败: ${msg}`);
+      toast.error(t('webui.theme.refresh_failed', msg));
     }
   };
 
@@ -275,7 +278,7 @@ const ThemeConfigCard = () => {
   const savedThemeName = useMemo(() => {
     const savedData = originalDataRef.current || data;
     if (!savedData) return null;
-    return themes.find(t => isThemeColorsEqual(t.theme, savedData))?.name || '自定义';
+    return themes.find(t => isThemeColorsEqual(t.theme, savedData))?.name || t('webui.theme.custom');
   }, [data, dataLoaded, hasUnsavedChanges]);
 
   // 已保存的字体模式显示名称
@@ -295,17 +298,17 @@ const ThemeConfigCard = () => {
 
   return (
     <>
-      <title>主题配置 - NapCat WebUI</title>
+      <title>{t('webui.config.theme.title')}</title>
 
       {/* 顶部操作栏 */}
       <div className='w-full px-4 pt-4 pb-2'>
         <div className='flex items-center justify-between'>
           <div className='flex flex-col gap-1'>
-            <h1 className='text-xl font-bold text-default-900 tracking-tight'>外观设置</h1>
+            <h1 className='text-xl font-bold text-default-900 tracking-tight'>{t('webui.theme.appearance')}</h1>
             <div className='flex items-center gap-3 text-tiny text-default-500'>
               <div className='flex items-center gap-1.5'>
                 <IoIosColorPalette className='text-primary' size={16} />
-                <span className='font-medium text-default-700'>{savedThemeName || '加载中...'}</span>
+                <span className='font-medium text-default-700'>{savedThemeName || t('webui.theme.loading')}</span>
               </div>
               <div className='w-px h-2.5 bg-default-300' />
               <div className='flex items-center gap-1.5'>
@@ -317,7 +320,7 @@ const ThemeConfigCard = () => {
                   <div className='w-px h-2.5 bg-default-300' />
                   <div className='flex items-center gap-1'>
                     <div className='w-1.5 h-1.5 rounded-full bg-warning animate-pulse' />
-                    <span className='text-warning font-semibold'>待保存</span>
+                    <span className='text-warning font-semibold'>{t('webui.theme.unsaved')}</span>
                   </div>
                 </>
               )}
@@ -332,11 +335,11 @@ const ThemeConfigCard = () => {
               className='font-medium bg-default-100 hover:bg-default-200 h-9'
               onPress={() => {
                 reset();
-                toast.success('已重置');
+                toast.success(t('webui.theme.reset_success'));
               }}
               isDisabled={!hasUnsavedChanges}
             >
-              重置
+              {t('webui.theme.reset')}
             </Button>
             <Button
               size='sm'
@@ -346,7 +349,7 @@ const ThemeConfigCard = () => {
               onPress={() => onSubmit()}
               isDisabled={!hasUnsavedChanges}
             >
-              保存应用
+              {t('webui.theme.save_apply')}
             </Button>
             <div className='w-px h-6 bg-divider mx-1 hidden sm:block' />
             <Button
@@ -381,7 +384,7 @@ const ThemeConfigCard = () => {
             title={
               <div className='flex items-center space-x-2'>
                 <FaFont />
-                <span>字体设置</span>
+                <span>{t('webui.theme.font_settings')}</span>
               </div>
             }
           >
@@ -389,23 +392,23 @@ const ThemeConfigCard = () => {
               <CardBody className='p-6'>
                 <div className='flex flex-col gap-6 w-full'>
                   <div>
-                    <h3 className='text-lg font-medium mb-1'>WebUI 字体</h3>
-                    <p className='text-sm text-default-500 mb-4'>自定义界面显示的字体风格</p>
+                    <h3 className='text-lg font-medium mb-1'>{t('webui.theme.webui_font')}</h3>
+                    <p className='text-sm text-default-500 mb-4'>{t('webui.theme.font_desc')}</p>
                     <Controller
                       control={control}
                       name='theme.fontMode'
                       render={({ field }) => (
                         <Select
-                          label='选择字体'
+                          label={t('webui.theme.select_font')}
                           variant='bordered'
                           selectedKeys={field.value ? [field.value] : ['aacute']}
                           onChange={(e) => field.onChange(e.target.value)}
                           className='max-w-xs'
                           disallowEmptySelection
                         >
-                          <SelectItem key='aacute'>Aa 偷吃可爱长大的</SelectItem>
-                          <SelectItem key='system'>系统默认</SelectItem>
-                          <SelectItem key='custom'>自定义字体</SelectItem>
+                          <SelectItem key='aacute'>{t('webui.theme.font_aacute')}</SelectItem>
+                          <SelectItem key='system'>{t('webui.theme.font_system')}</SelectItem>
+                          <SelectItem key='custom'>{t('webui.theme.font_custom')}</SelectItem>
                         </Select>
                       )}
                     />
@@ -414,17 +417,17 @@ const ThemeConfigCard = () => {
                   {theme.fontMode === 'custom' && (
                     <div className='p-4 rounded-xl bg-default-50 border border-default-100'>
                       <div className='flex items-center justify-between mb-4'>
-                        <div className='text-sm font-medium'>自定义字体文件</div>
+                        <div className='text-sm font-medium'>{t('webui.theme.custom_font_file')}</div>
                         {customFontExists && (
                           <Chip size='sm' color='success' variant='flat' startContent={<FaCheck size={10} />}>
-                            已上传
+                            {t('webui.theme.uploaded')}
                           </Chip>
                         )}
                       </div>
 
                       <FileInput
-                        label='上传字体文件'
-                        placeholder='拖拽或点击上传 (.woff/.woff2/.ttf/.otf)'
+                        label={t('webui.theme.upload_font')}
+                        placeholder={t('webui.theme.upload_placeholder')}
                         accept='.ttf,.otf,.woff,.woff2'
                         onChange={async (file) => {
                           try {
@@ -436,24 +439,24 @@ const ThemeConfigCard = () => {
                               }
                             }
                             await FileManager.uploadWebUIFont(file);
-                            toast.success('上传成功，即将刷新页面');
+                            toast.success(t('webui.theme.upload_success'));
                             setTimeout(() => window.location.reload(), 1000);
                           } catch (error) {
-                            toast.error('上传失败: ' + (error as Error).message);
+                            toast.error(t('webui.theme.upload_failed', (error as Error).message));
                           }
                         }}
                         onDelete={async () => {
                           try {
                             await FileManager.deleteWebUIFont();
-                            toast.success('删除成功，即将刷新页面');
+                            toast.success(t('webui.theme.delete_success'));
                             setTimeout(() => window.location.reload(), 1000);
                           } catch (error) {
-                            toast.error('删除失败: ' + (error as Error).message);
+                            toast.error(t('webui.theme.delete_failed', (error as Error).message));
                           }
                         }}
                       />
                       <p className='text-xs text-default-400 mt-2'>
-                        注意：上传新字体会覆盖旧字体文件，更改后需要刷新页面生效。
+                        {t('webui.theme.font_note')}
                       </p>
                     </div>
                   )}
@@ -467,7 +470,7 @@ const ThemeConfigCard = () => {
             title={
               <div className='flex items-center space-x-2'>
                 <IoIosColorPalette size={18} />
-                <span>选择主题</span>
+                <span>{t('webui.theme.select_theme')}</span>
               </div>
             }
           >
@@ -490,7 +493,7 @@ const ThemeConfigCard = () => {
             title={
               <div className='flex items-center space-x-2'>
                 <FaPaintbrush />
-                <span>自定义配色</span>
+                <span>{t('webui.theme.custom_colors')}</span>
               </div>
             }
           >
@@ -501,11 +504,11 @@ const ThemeConfigCard = () => {
                     <div className='flex items-center gap-2 mb-1'>
                       {mode === 'dark' ? <MdDarkMode className='text-zinc-400' size={20} /> : <MdLightMode className='text-orange-400' size={20} />}
                       <h4 className={clsx('font-bold text-large', mode === 'dark' ? 'text-white' : 'text-black')}>
-                        {mode === 'dark' ? '深色模式' : '浅色模式'}
+                        {mode === 'dark' ? t('webui.theme.dark_mode') : t('webui.theme.light_mode')}
                       </h4>
                     </div>
                     <p className={clsx('text-tiny', mode === 'dark' ? 'text-zinc-400' : 'text-zinc-500')}>
-                      调整{mode === 'dark' ? '深色' : '浅色'}主题下的颜色变量
+                      {t('webui.theme.adjust_colors', mode === 'dark' ? t('webui.theme.dark') : t('webui.theme.light'))}
                     </p>
                   </CardHeader>
                   <CardBody className='p-4'>

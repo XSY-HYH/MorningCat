@@ -12,7 +12,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\logs\logs.csproj" />
+    <ProjectReference Include="..\MorningCat.I18n\MorningCat.I18n.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="logs">
+      <HintPath>..\Lib\logs.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

@@ -8,6 +8,7 @@ import toast from '@/utils/toast';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import PluginManager, { PluginConfigSchemaItem } from '@/controllers/plugin_manager';
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 interface Props {
   isOpen: boolean;
@@ -26,6 +27,7 @@ interface SchemaUpdateEvent {
 }
 
 export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: Props) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [schema, setSchema] = useState<PluginConfigSchemaItem[]>([]);
   const [config, setConfig] = useState<Record<string, unknown>>({});
@@ -114,7 +116,7 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
 
     const token = localStorage.getItem(key.token);
     if (!token) {
-      console.warn('未登录，无法建立 SSE 连接');
+      console.warn(t('webui.plugin_config.not_logged_in'));
       return;
     }
     const _token = JSON.parse(token);
@@ -143,7 +145,7 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
     es.addEventListener('error', (e) => {
       try {
         const data = JSON.parse((e as MessageEvent).data);
-        toast.error('插件错误: ' + data.message);
+        toast.error(t('webui.plugin_config.plugin_error', data.message));
       } catch {
         // SSE 连接错误
         setConnected(false);
@@ -193,7 +195,7 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
         connectSSE(data.config || {});
       }
     } catch (e: any) {
-      toast.error('加载配置失败: ' + e.message);
+      toast.error(t('webui.plugin_config.load_failed') + ': ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -203,10 +205,10 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
     setSaving(true);
     try {
       await PluginManager.setPluginConfig(pluginId, config);
-      toast.success('Configuration saved');
+      toast.success(t('webui.plugin_config.save_success'));
       onOpenChange();
     } catch (e: any) {
-      toast.error('Save failed: ' + e.message);
+      toast.error(t('webui.plugin_config.save_failed') + ': ' + e.message);
     } finally {
       setSaving(false);
     }
@@ -221,7 +223,7 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
       const field = schema.find(item => item.key === key);
       if (field?.reactive && sessionId && connected) {
         PluginManager.notifyConfigChange(pluginId, sessionId, key, value, newConfig)
-          .catch(e => console.error('通知配置变化失败:', e));
+          .catch(e => console.error(t('webui.plugin_config.notify_change_failed'), e));
       }
 
       return newConfig;
@@ -351,10 +353,10 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
           <>
             <ModalHeader className='flex flex-col gap-1'>
               <div className='flex items-center gap-2'>
-                插件配置: {pluginId}
+                {t('webui.plugin_config.heading')}: {pluginId}
                 {supportReactive && (
                   <span className={`text-tiny px-2 py-0.5 rounded ${connected ? 'bg-success-100 text-success-600' : 'bg-warning-100 text-warning-600'}`}>
-                    {connected ? '已连接' : '未连接'}
+                    {connected ? t('webui.plugin_config.connected') : t('webui.plugin_config.disconnected')}
                   </span>
                 )}
               </div>
@@ -362,13 +364,13 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
             <ModalBody>
               {loading
                 ? (
-                  <div className='flex justify-center p-8'>Loading configuration...</div>
+                  <div className='flex justify-center p-8'>{t('webui.plugin_config.loading')}</div>
                 )
                 : (
                   <div className='flex flex-col gap-2'>
                     {schema.length === 0
                       ? (
-                        <div className='text-center text-default-500'>No configuration schema available.</div>
+                        <div className='text-center text-default-500'>{t('webui.plugin_config.no_schema')}</div>
                       )
                       : (
                         schema.filter(item => !item.hidden).map(renderField)
@@ -378,10 +380,10 @@ export default function PluginConfigModal ({ isOpen, onOpenChange, pluginId }: P
             </ModalBody>
             <ModalFooter>
               <Button color='danger' variant='light' onPress={onClose}>
-                关闭
+                {t('webui.common.close')}
               </Button>
               <Button color='primary' onPress={handleSave} isLoading={saving}>
-                保存
+                {t('webui.common.save')}
               </Button>
             </ModalFooter>
           </>

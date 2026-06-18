@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { PluginStoreItem } from '@/types/plugin-store';
 import { InstallStatus } from '@/components/display_card/plugin_store_card';
 import TailwindMarkdown from '@/components/tailwind_markdown';
+import useI18n from '@/hooks/use-i18n';
 
 interface PluginDetailModalProps {
   isOpen: boolean;
@@ -123,6 +124,7 @@ export default function PluginDetailModal ({
   const [readme, setReadme] = useState<string>('');
   const [readmeLoading, setReadmeLoading] = useState(false);
   const [readmeError, setReadmeError] = useState(false);
+  const { t } = useI18n();
 
   // 获取 GitHub 仓库信息（需要在 hooks 之前计算）
   const githubRepo = plugin ? extractGitHubRepo(plugin.homepage) : null;
@@ -188,7 +190,7 @@ export default function PluginDetailModal ({
                   <div className='flex items-center gap-2'>
                     <h2 className='text-2xl font-bold text-default-900'>{name}</h2>
                     {homepage && (
-                      <Tooltip content='访问项目主页'>
+                      <Tooltip content={t('webui.store.visit_homepage')}>
                         <Button
                           isIconOnly
                           size='sm'
@@ -205,7 +207,7 @@ export default function PluginDetailModal ({
                     )}
                   </div>
                   <p className='text-sm text-default-500 mt-1'>
-                    by <span className='font-medium'>{author || '未知作者'}</span>
+                    by <span className='font-medium'>{author || t('webui.store.unknown_author')}</span>
                   </p>
 
                   {/* 标签和版本信息 */}
@@ -230,7 +232,7 @@ export default function PluginDetailModal ({
                         variant='shadow'
                         className='animate-pulse'
                       >
-                        可更新
+                        {t('webui.store.update_available')}
                       </Chip>
                     )}
                     {installStatus === 'installed' && (
@@ -240,7 +242,7 @@ export default function PluginDetailModal ({
                         variant='flat'
                         startContent={<IoMdCheckmarkCircle size={14} />}
                       >
-                        已安装
+                        {t('webui.store.installed')}
                       </Chip>
                     )}
                   </div>
@@ -251,39 +253,39 @@ export default function PluginDetailModal ({
             <ModalBody className='gap-4'>
               {/* 插件描述 */}
               <div>
-                <h3 className='text-sm font-semibold text-default-700 mb-2'>插件描述</h3>
+                <h3 className='text-sm font-semibold text-default-700 mb-2'>{t('webui.store.description')}</h3>
                 <p className='text-sm text-default-600 leading-relaxed'>
-                  {description || '暂无描述'}
+                  {description || t('webui.store.no_description')}
                 </p>
               </div>
 
               {/* 插件信息 */}
               <div>
-                <h3 className='text-sm font-semibold text-default-700 mb-3'>插件信息</h3>
+                <h3 className='text-sm font-semibold text-default-700 mb-3'>{t('webui.store.plugin_info')}</h3>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
                   <div className='flex justify-between items-center'>
-                    <span className='text-default-500'>最新版本:</span>
+                    <span className='text-default-500'>{t('webui.store.latest_version')}:</span>
                     <span className='font-medium text-default-900'>v{version}</span>
                   </div>
                   {installedVersion && (
                     <div className='flex justify-between items-center'>
-                      <span className='text-default-500'>已安装版本:</span>
+                      <span className='text-default-500'>{t('webui.store.installed_version')}:</span>
                       <span className='font-medium text-default-900'>v{installedVersion}</span>
                     </div>
                   )}
                   {minVersion && (
                     <div className='flex justify-between items-center'>
-                      <span className='text-default-500'>最低要求版本:</span>
+                      <span className='text-default-500'>{t('webui.store.min_version')}:</span>
                       <span className='font-medium text-default-900'>v{minVersion}</span>
                     </div>
                   )}
                   <div className='flex justify-between items-center'>
-                    <span className='text-default-500'>插件 ID:</span>
+                    <span className='text-default-500'>{t('webui.store.plugin_id')}:</span>
                     <span className='font-mono text-xs text-default-900'>{plugin.id}</span>
                   </div>
                   {downloadUrl && (
                     <div className='flex justify-between items-center'>
-                      <span className='text-default-500'>下载地址:</span>
+                      <span className='text-default-500'>{t('webui.store.download_url')}:</span>
                       <Button
                         size='sm'
                         variant='flat'
@@ -294,7 +296,7 @@ export default function PluginDetailModal ({
                         rel='noreferrer'
                         startContent={<IoMdDownload size={14} />}
                       >
-                        下载插件
+                        {t('webui.store.download_plugin')}
                       </Button>
                     </div>
                   )}
@@ -305,7 +307,7 @@ export default function PluginDetailModal ({
               {githubRepo && (
                 <>
                   <div className='mt-2'>
-                    <h3 className='text-sm font-semibold text-default-700 mb-3'>详情</h3>
+                    <h3 className='text-sm font-semibold text-default-700 mb-3'>{t('webui.store.details')}</h3>
                     {readmeLoading && (
                       <div className='flex justify-center items-center py-12'>
                         <Spinner size='lg' />
@@ -314,7 +316,7 @@ export default function PluginDetailModal ({
                     {readmeError && (
                       <div className='text-center py-8'>
                         <p className='text-sm text-default-500 mb-3'>
-                          无法加载 README
+                          {t('webui.store.readme_load_failed')}
                         </p>
                         <Button
                           color='primary'
@@ -325,7 +327,7 @@ export default function PluginDetailModal ({
                           rel='noreferrer'
                           startContent={<IoMdOpen />}
                         >
-                          在 GitHub 查看
+                          {t('webui.store.view_on_github')}
                         </Button>
                       </div>
                     )}
@@ -341,7 +343,7 @@ export default function PluginDetailModal ({
 
             <ModalFooter>
               <Button variant='light' onPress={onModalClose}>
-                关闭
+                {t('webui.common.close')}
               </Button>
               {installStatus === 'installed'
                 ? (
@@ -351,7 +353,7 @@ export default function PluginDetailModal ({
                     startContent={<IoMdCheckmarkCircle size={18} />}
                     isDisabled
                   >
-                    已安装
+                    {t('webui.store.installed')}
                   </Button>
                 )
                 : installStatus === 'update-available'
@@ -365,7 +367,7 @@ export default function PluginDetailModal ({
                         onModalClose();
                       }}
                     >
-                      更新到 v{version}
+                      {t('webui.store.update_to_version', version)}
                     </Button>
                   )
                   : (
@@ -378,7 +380,7 @@ export default function PluginDetailModal ({
                         onModalClose();
                       }}
                     >
-                      立即安装
+                      {t('webui.store.install_now')}
                     </Button>
                   )}
             </ModalFooter>

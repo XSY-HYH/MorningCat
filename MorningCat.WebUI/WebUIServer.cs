@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MorningCat.I18n;
 using MorningCat.WebUI.Services;
 
 namespace MorningCat.WebUI
@@ -32,6 +33,7 @@ namespace MorningCat.WebUI
         private IMessageProvider? _messageProvider;
         private IDatabaseInfoProvider? _databaseInfoProvider;
         private IMessageSendProvider? _messageSendProvider;
+        private II18nProvider? _i18nProvider;
         private Action? _updateCallback;
         private CancellationTokenSource? _shutdownCts;
         private PluginMarketService _pluginMarketService;
@@ -87,6 +89,11 @@ namespace MorningCat.WebUI
         public void SetMessageSendProvider(IMessageSendProvider provider)
         {
             _messageSendProvider = provider;
+        }
+
+        public void SetI18nProvider(II18nProvider provider)
+        {
+            _i18nProvider = provider;
         }
 
         public void SetConfigProvider(IConfigProvider configProvider)
@@ -429,25 +436,39 @@ namespace MorningCat.WebUI
                             return;
                         }
                         
-                        await context.Response.WriteAsync(JsonResponse(new
+                        var groups = new[]
                         {
-                            napCatServerUrl = config.NapCatServerUrl,
-                            napCatToken = config.NapCatToken,
-                            modulesDirectory = config.ModulesDirectory,
-                            autoLoadModules = config.AutoLoadModules,
-                            ownerQQ = config.OwnerQQ,
-                            blockedUsers = config.BlockedUsers,
-                            blockedGroups = config.BlockedGroups,
-                            pluginStoreUrl = config.PluginStoreUrl,
-                            webui = new
-                            {
-                                enabled = config.WebUI.Enabled,
-                                listenAddress = config.WebUI.ListenAddress,
-                                port = config.WebUI.Port,
-                                username = config.WebUI.Username,
-                                password = ""
-                            }
-                        }));
+                            new { key = "onebot", label = "webui.config.group.onebot", icon = "link" },
+                            new { key = "core", label = "webui.config.group.core", icon = "settings" },
+                            new { key = "permission", label = "webui.config.group.permission", icon = "shield" },
+                            new { key = "webui", label = "webui.config.group.webui", icon = "globe" },
+                            new { key = "i18n", label = "webui.config.group.i18n", icon = "languages" },
+                            new { key = "database", label = "webui.config.group.database", icon = "database" },
+                            new { key = "pluginstore", label = "webui.config.group.pluginstore", icon = "package" }
+                        };
+
+                        var items = new object[]
+                        {
+                            new { key = "onebotServerUrl", label = "webui.config.label.onebot_server_url", type = "string", group = "onebot", description = "webui.config.desc.onebot_server_url", placeholder = "ws://127.0.0.1:7892", required = true, min = (int?)null, max = (int?)null, value = config.OneBotServerUrl },
+                            new { key = "onebotToken", label = "webui.config.label.onebot_token", type = "password", group = "onebot", description = "webui.config.desc.onebot_token", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.OneBotToken },
+                            new { key = "modulesDirectory", label = "webui.config.label.modules_directory", type = "string", group = "core", description = "webui.config.desc.modules_directory", placeholder = "Modules", required = false, min = (int?)null, max = (int?)null, value = config.ModulesDirectory },
+                            new { key = "autoLoadModules", label = "webui.config.label.auto_load_modules", type = "boolean", group = "core", description = "webui.config.desc.auto_load_modules", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.AutoLoadModules },
+                            new { key = "enableMctStatus", label = "webui.config.label.enable_mct_status", type = "boolean", group = "core", description = "webui.config.desc.enable_mct_status", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.EnableMctStatus },
+                            new { key = "ownerQQ", label = "webui.config.label.owner_qq", type = "number", group = "permission", description = "webui.config.desc.owner_qq", placeholder = "0", required = false, min = (int?)0, max = (int?)null, value = config.OwnerQQ },
+                            new { key = "blockedUsers", label = "webui.config.label.blocked_users", type = "number_array", group = "permission", description = "webui.config.desc.blocked_users", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.BlockedUsers },
+                            new { key = "blockedGroups", label = "webui.config.label.blocked_groups", type = "number_array", group = "permission", description = "webui.config.desc.blocked_groups", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.BlockedGroups },
+                            new { key = "lang", label = "webui.config.label.lang", type = "select", group = "i18n", description = "webui.config.desc.lang", placeholder = "zh", required = true, min = (int?)null, max = (int?)null, value = config.Lang, options = _i18nProvider?.GetAvailableLanguages() ?? new List<string> { "zh", "en" } },
+                            new { key = "database.type", label = "webui.config.label.database_type", type = "select", group = "database", description = "webui.config.desc.database_type", placeholder = "sqlite", required = false, min = (int?)null, max = (int?)null, value = config.Database?.Type ?? "sqlite", options = new[] { "sqlite", "sql" } },
+                            new { key = "database.connectionString", label = "webui.config.label.database_connection_string", type = "string", group = "database", description = "webui.config.desc.database_connection_string", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.Database?.ConnectionString ?? "" },
+                            new { key = "pluginStoreUrl", label = "webui.config.label.plugin_store_url", type = "string", group = "pluginstore", description = "webui.config.desc.plugin_store_url", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.PluginStoreUrl },
+                            new { key = "webui.enabled", label = "webui.config.label.webui_enabled", type = "boolean", group = "webui", description = "webui.config.desc.webui_enabled", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = config.WebUI.Enabled },
+                            new { key = "webui.listenAddress", label = "webui.config.label.webui_listen_address", type = "string", group = "webui", description = "webui.config.desc.webui_listen_address", placeholder = "127.0.0.1", required = false, min = (int?)null, max = (int?)null, value = config.WebUI.ListenAddress },
+                            new { key = "webui.port", label = "webui.config.label.webui_port", type = "number", group = "webui", description = "webui.config.desc.webui_port", placeholder = "8080", required = false, min = (int?)1, max = (int?)65535, value = config.WebUI.Port },
+                            new { key = "webui.username", label = "webui.config.label.webui_username", type = "string", group = "webui", description = "webui.config.desc.webui_username", placeholder = "admin", required = true, min = (int?)null, max = (int?)null, value = config.WebUI.Username },
+                            new { key = "webui.password", label = "webui.config.label.webui_password", type = "password", group = "webui", description = "webui.config.desc.webui_password", placeholder = (string?)null, required = false, min = (int?)null, max = (int?)null, value = "" }
+                        };
+
+                        await context.Response.WriteAsync(JsonResponse(new { groups, items }));
                     }
                     else if (context.Request.Method == "POST")
                     {
@@ -457,14 +478,16 @@ namespace MorningCat.WebUI
                         
                         _configProvider?.UpdateConfig(config =>
                         {
-                            if (json.RootElement.TryGetProperty("napCatServerUrl", out var urlEl))
-                                config.NapCatServerUrl = urlEl.GetString() ?? config.NapCatServerUrl;
-                            if (json.RootElement.TryGetProperty("napCatToken", out var tokenEl))
-                                config.NapCatToken = tokenEl.GetString() ?? config.NapCatToken;
+                            if (json.RootElement.TryGetProperty("onebotServerUrl", out var urlEl))
+                                config.OneBotServerUrl = urlEl.GetString() ?? config.OneBotServerUrl;
+                            if (json.RootElement.TryGetProperty("onebotToken", out var tokenEl))
+                                config.OneBotToken = tokenEl.GetString() ?? config.OneBotToken;
                             if (json.RootElement.TryGetProperty("modulesDirectory", out var dirEl))
                                 config.ModulesDirectory = dirEl.GetString() ?? config.ModulesDirectory;
                             if (json.RootElement.TryGetProperty("autoLoadModules", out var autoEl))
                                 config.AutoLoadModules = autoEl.GetBoolean();
+                            if (json.RootElement.TryGetProperty("enableMctStatus", out var mctStatusEl))
+                                config.EnableMctStatus = mctStatusEl.GetBoolean();
                             if (json.RootElement.TryGetProperty("ownerQQ", out var ownerEl))
                                 config.OwnerQQ = ownerEl.GetInt64();
                             if (json.RootElement.TryGetProperty("blockedUsers", out var blockedUsersEl) && blockedUsersEl.ValueKind == JsonValueKind.Array)
@@ -478,6 +501,15 @@ namespace MorningCat.WebUI
                                 config.BlockedGroups = blockedGroupsEl.EnumerateArray()
                                     .Select(e => e.GetInt64())
                                     .ToList();
+                            }
+                            if (json.RootElement.TryGetProperty("lang", out var langEl))
+                                config.Lang = langEl.GetString() ?? config.Lang;
+                            if (json.RootElement.TryGetProperty("database", out var dbEl))
+                            {
+                                if (dbEl.TryGetProperty("type", out var dbTypeEl))
+                                    config.Database.Type = dbTypeEl.GetString() ?? config.Database.Type;
+                                if (dbEl.TryGetProperty("connectionString", out var dbConnEl))
+                                    config.Database.ConnectionString = dbConnEl.GetString() ?? config.Database.ConnectionString;
                             }
                             if (json.RootElement.TryGetProperty("pluginStoreUrl", out var storeUrlEl))
                                 config.PluginStoreUrl = storeUrlEl.GetString() ?? "";
@@ -496,7 +528,7 @@ namespace MorningCat.WebUI
                             }
                         });
                         
-                        await context.Response.WriteAsync(JsonResponse(true, "配置已保存"));
+                        await context.Response.WriteAsync(JsonResponse(true, I18nManager.S("webui.config_saved")));
                     }
                     else
                     {
@@ -536,7 +568,7 @@ namespace MorningCat.WebUI
             });
 
             // Version info
-            app.Map("/api/base/GetNapCatVersion", versionApp =>
+            app.Map("/api/base/GetOneBotVersion", versionApp =>
             {
                 versionApp.Run(async context =>
                 {
@@ -548,6 +580,52 @@ namespace MorningCat.WebUI
                         name = "MorningCat",
                         version = info?.Version ?? "1.0.0",
                         description = "MorningCat Bot Framework"
+                    }));
+                });
+            });
+
+            app.Map("/api/i18n/translations", i18nApp =>
+            {
+                i18nApp.Run(async context =>
+                {
+                    if (!await CheckApiAuthAsync(context)) return;
+
+                    var lang = context.Request.Query["lang"].ToString();
+                    Dictionary<string, string>? allTranslations;
+
+                    if (!string.IsNullOrEmpty(lang) && lang != _i18nProvider?.CurrentLang)
+                    {
+                        allTranslations = _i18nProvider?.GetTranslationsForLang(lang);
+                    }
+                    else
+                    {
+                        allTranslations = _i18nProvider?.GetTranslations();
+                    }
+
+                    // 只返回 webui. 前缀的翻译给前端
+                    var webuiTranslations = allTranslations?
+                        .Where(kv => kv.Key.StartsWith("webui."))
+                        .ToDictionary(kv => kv.Key, kv => kv.Value)
+                        ?? new Dictionary<string, string>();
+
+                    await context.Response.WriteAsync(JsonResponse(new
+                    {
+                        lang = _i18nProvider?.CurrentLang ?? "zh",
+                        translations = webuiTranslations
+                    }));
+                });
+            });
+
+            app.Map("/api/i18n/languages", i18nApp =>
+            {
+                i18nApp.Run(async context =>
+                {
+                    if (!await CheckApiAuthAsync(context)) return;
+
+                    await context.Response.WriteAsync(JsonResponse(new
+                    {
+                        current = _i18nProvider?.CurrentLang ?? "zh",
+                        available = _i18nProvider?.GetAvailableLanguages() ?? new List<string>()
                     }));
                 });
             });

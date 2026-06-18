@@ -4,9 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Logging;
+using MorningCat.I18n;
 using MorningCat.Config;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
+using MorningCat.PluginErrorDatabase;
 using OneBotLib.Models;
 
 namespace MorningCat.Commands
@@ -98,6 +100,7 @@ namespace MorningCat.Commands
         private readonly object _lock = new object();
         private MessageDistributionCore _mdc;
         private ConfigManager _configManager;
+        private MorningCatBot? _bot;
         
         private static readonly HashSet<string> BuiltinModules = new HashSet<string>
         {
@@ -118,6 +121,11 @@ namespace MorningCat.Commands
             _mdc = mdc;
         }
 
+        public void SetBot(MorningCatBot bot)
+        {
+            _bot = bot;
+        }
+
         public bool RegisterCommand(
             string commandName, 
             string description, 
@@ -132,7 +140,7 @@ namespace MorningCat.Commands
         {
             if (string.IsNullOrEmpty(commandName))
             {
-                Log.Debug("命令名称不能为空");
+                Log.Debug(I18nManager.S("command.name_empty"));
                 return false;
             }
 
@@ -142,7 +150,7 @@ namespace MorningCat.Commands
             {
                 if (_commands.ContainsKey(commandName))
                 {
-                    Log.Debug($"命令 '{commandName}' 已存在，无法重复注册");
+                    Log.Debug(I18nManager.S("command.already_exists", commandName));
                     return false;
                 }
 
@@ -167,7 +175,7 @@ namespace MorningCat.Commands
                 }
 
                 _commands[commandName] = commandInfo;
-                Log.Debug($"命令 '{commandName}' 注册成功 (模块: {moduleName}, RequireAt: {requireAt}, RequireSlash: {requireSlash})");
+                Log.Debug(I18nManager.S("command.registered", commandName, moduleName, requireAt, requireSlash));
                 return true;
             }
         }
@@ -183,7 +191,7 @@ namespace MorningCat.Commands
             {
                 if (_commands.Remove(commandName))
                 {
-                    Log.Debug($"命令 '{commandName}' 已注销");
+                    Log.Debug(I18nManager.S("command.unregistered", commandName));
                     return true;
                 }
                 return false;
@@ -205,7 +213,7 @@ namespace MorningCat.Commands
                 foreach (var commandName in commandsToRemove)
                 {
                     _commands.Remove(commandName);
-                    Log.Debug($"命令 '{commandName}' 已注销 (模块卸载: {moduleName})");
+                    Log.Debug(I18nManager.S("command.unregistered_by_module", commandName, moduleName));
                 }
             }
         }
@@ -276,7 +284,7 @@ namespace MorningCat.Commands
 
             if (command.RequireSlash && !hasSlash)
             {
-                Log.Debug($"命令'{commandName}'需要/前缀但未满足 (RequireSlash={command.RequireSlash}, hasSlash={hasSlash})");
+                Log.Debug(I18nManager.S("command.require_slash", commandName, command.RequireSlash, hasSlash));
                 return false;
             }
 
@@ -322,12 +330,26 @@ namespace MorningCat.Commands
                 
                 if (isPluginCommand)
                 {
-                    Log.Error($"插件命令 '{commandName}' (模块: {command.ModuleName}) 执行失败: {ex.Message}");
-                    Log.Debug($"插件异常堆栈追踪:\n{ex.StackTrace}");
+                    Log.Error(I18nManager.S("command.plugin_execute_failed", commandName, command.ModuleName, ex.Message));
+                    Log.Debug(I18nManager.S("command.plugin_stack_trace", ex.StackTrace));
+                    
+                    // 尝试匹配已知错误
+                    if (_bot?.ErrorMatcher?.IsEnabled == true)
+                    {
+                        try
+                        {
+                            var match = _bot.ErrorMatcher.MatchAsync(ex).GetAwaiter().GetResult();
+                            if (match.Found)
+                            {
+                                Log.Debug(PluginErrorMatcher.FormatDebugLog(match, command.ModuleName, ex));
+                            }
+                        }
+                        catch { }
+                    }
                 }
                 else
                 {
-                    Log.Error($"执行命令 '{commandName}' 失败: {ex.Message}");
+                    Log.Error(I18nManager.S("command.execute_failed", commandName, ex.Message));
                 }
                 return false;
             }
@@ -369,7 +391,7 @@ namespace MorningCat.Commands
                     return new ValidationResult
                     {
                         IsValid = false,
-                        ErrorMessage = $"缺少必需参数: {paramDef.Name}",
+                        ErrorMessage = I18nManager.S("command.missing_required_param", paramDef.Name),
                         ErrorParameter = paramDef.Name,
                         ErrorPosition = CalculateErrorPosition(rawCommand, argIndex)
                     };
@@ -413,7 +435,7 @@ namespace MorningCat.Commands
                         return new ValidationResult
                         {
                             IsValid = false,
-                            ErrorMessage = $"参数 '{paramDef.Name}' 必须是整数，但收到: {value}"
+                            ErrorMessage = I18nManager.S("command.param_must_be_integer", paramDef.Name, value)
                         };
                     }
                     break;
@@ -424,7 +446,7 @@ namespace MorningCat.Commands
                         return new ValidationResult
                         {
                             IsValid = false,
-                            ErrorMessage = $"参数 '{paramDef.Name}' 必须是数字，但收到: {value}"
+                            ErrorMessage = I18nManager.S("command.param_must_be_number", paramDef.Name, value)
                         };
                     }
                     break;
@@ -436,7 +458,7 @@ namespace MorningCat.Commands
                         return new ValidationResult
                         {
                             IsValid = false,
-                            ErrorMessage = $"参数 '{paramDef.Name}' 必须是布尔值(true/false)，但收到: {value}"
+                            ErrorMessage = I18nManager.S("command.param_must_be_boolean", paramDef.Name, value)
                         };
                     }
                     break;
@@ -473,7 +495,7 @@ namespace MorningCat.Commands
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine($"错误的命令: \"{displayCommand}\"");
+            sb.AppendLine(I18nManager.S("command.error_command", displayCommand));
             
             if (validationResult.ErrorPosition > 0)
             {
@@ -501,7 +523,7 @@ namespace MorningCat.Commands
             }
             catch (Exception ex)
             {
-                Log.Debug($"发送错误消息失败: {ex.Message}");
+                Log.Debug(I18nManager.S("command.send_error_failed", ex.Message));
             }
             
             return Task.CompletedTask;
@@ -656,7 +678,7 @@ namespace MorningCat.Commands
                 }
                 else if (paramDef.IsRequired)
                 {
-                    Log.Warning($"[CommandRegistry] 缺少必需参数: {paramDef.Name}");
+                    Log.Warning(I18nManager.S("command.param_missing", paramDef.Name));
                 }
             }
 
@@ -671,7 +693,7 @@ namespace MorningCat.Commands
             {
                 if (seen.Contains(param.Name))
                 {
-                    Log.Warning($"[CommandRegistry] 参数名冲突: {param.Name}");
+                    Log.Warning(I18nManager.S("command.param_conflict", param.Name));
                 }
                 else
                 {
@@ -689,10 +711,10 @@ namespace MorningCat.Commands
         {
             var command = GetCommand(commandName);
             if (command == null)
-                return $"命令 '{commandName}' 不存在";
+                return I18nManager.S("command.not_found", commandName);
 
-            var help = $"命令: /{command.Name}\n";
-            help += $"描述: {command.Description}\n";
+            var help = I18nManager.S("command.help_title", command.Name) + "\n";
+            help += I18nManager.S("command.help_desc", command.Description) + "\n";
             
             if (!string.IsNullOrEmpty(command.HelpText))
             {
@@ -701,12 +723,12 @@ namespace MorningCat.Commands
 
             if (command.Parameters.Count > 0)
             {
-                help += "\n参数:\n";
+                help += "\n" + I18nManager.S("command.help_params") + "\n";
                 foreach (var param in command.Parameters)
                 {
-                    var required = param.IsRequired ? "必需" : "可选";
+                    var required = param.IsRequired ? I18nManager.S("command.param_required") : I18nManager.S("command.param_optional");
                     var typeStr = GetTypeString(param.Type);
-                    var defaultVal = param.DefaultValue != null ? $" (默认: {param.DefaultValue})" : "";
+                    var defaultVal = param.DefaultValue != null ? I18nManager.S("command.param_default", param.DefaultValue) : "";
                     help += $"  {param.Name} [{typeStr}] [{required}]{defaultVal} - {param.Description}\n";
                 }
             }
@@ -718,11 +740,11 @@ namespace MorningCat.Commands
         {
             return type switch
             {
-                ParameterType.String => "字符串",
-                ParameterType.Integer => "整数",
-                ParameterType.Float => "数字",
-                ParameterType.Boolean => "布尔值",
-                _ => "未知"
+                ParameterType.String => I18nManager.S("command.type_string"),
+                ParameterType.Integer => I18nManager.S("command.type_integer"),
+                ParameterType.Float => I18nManager.S("command.type_float"),
+                ParameterType.Boolean => I18nManager.S("command.type_boolean"),
+                _ => I18nManager.S("command.type_unknown")
             };
         }
 
@@ -734,7 +756,7 @@ namespace MorningCat.Commands
             var config = _configManager.GetConfig();
             var userId = long.TryParse(message.SenderId, out var uid) ? uid : 0;
 
-            Log.Debug($"权限检查: permission={permission}, userId={userId}, ownerQQ={config.OwnerQQ}, isOwner={config.IsOwner(userId)}");
+            Log.Debug(I18nManager.S("command.permission_check", permission, userId, config.OwnerQQ, config.IsOwner(userId)));
 
             if (permission == CommandPermission.BotOwner)
             {
@@ -778,10 +800,10 @@ namespace MorningCat.Commands
         {
             return message.MessageType switch
             {
-                UnifiedMessageType.Private => "私聊",
-                UnifiedMessageType.Group => "群聊",
-                UnifiedMessageType.Channel => "频道",
-                _ => "未知"
+                UnifiedMessageType.Private => I18nManager.S("command.scope_private"),
+                UnifiedMessageType.Group => I18nManager.S("command.scope_group"),
+                UnifiedMessageType.Channel => I18nManager.S("command.scope_channel"),
+                _ => I18nManager.S("command.scope_unknown")
             };
         }
 
@@ -791,7 +813,7 @@ namespace MorningCat.Commands
             {
                 try
                 {
-                    string errorText = "你无权使用此命令";
+                    string errorText = I18nManager.S("command.permission_denied");
                     await _mdc.SendMessageAsync(message, errorText);
                 }
                 catch
@@ -823,8 +845,8 @@ namespace MorningCat.Commands
                 try
                 {
                     string errorText = scope == CommandScope.PrivateOnly 
-                        ? "此命令仅限私聊使用" 
-                        : "此命令仅限群聊使用";
+                        ? I18nManager.S("command.scope_private_only") 
+                        : I18nManager.S("command.scope_group_only");
                     
                     await _mdc.SendMessageAsync(message, errorText);
                 }
@@ -847,7 +869,7 @@ namespace MorningCat.Commands
                 return new PluginCommandResult
                 {
                     Success = false,
-                    ErrorMessage = "命令名称不能为空"
+                    ErrorMessage = I18nManager.S("command.name_empty")
                 };
             }
 
@@ -859,7 +881,7 @@ namespace MorningCat.Commands
                 return new PluginCommandResult
                 {
                     Success = false,
-                    ErrorMessage = $"命令 '{commandName}' 不存在"
+                    ErrorMessage = I18nManager.S("command.not_found", commandName)
                 };
             }
 
@@ -868,7 +890,7 @@ namespace MorningCat.Commands
                 return new PluginCommandResult
                 {
                     Success = false,
-                    ErrorMessage = $"权限不足：命令需要 {command.Permission} 权限，但只提供了 {permissionLevel} 权限"
+                    ErrorMessage = I18nManager.S("command.permission_insufficient", command.Permission, permissionLevel)
                 };
             }
 
@@ -877,7 +899,7 @@ namespace MorningCat.Commands
                 return new PluginCommandResult
                 {
                     Success = false,
-                    ErrorMessage = $"命令作用域不匹配：此命令仅限 {(command.Scope == CommandScope.PrivateOnly ? "私聊" : "群聊")} 使用"
+                    ErrorMessage = I18nManager.S("command.scope_mismatch", command.Scope == CommandScope.PrivateOnly ? I18nManager.S("command.scope_private") : I18nManager.S("command.scope_group"))
                 };
             }
 
@@ -905,7 +927,7 @@ namespace MorningCat.Commands
                 return new PluginCommandResult
                 {
                     Success = false,
-                    ErrorMessage = $"命令执行失败: {ex.Message}"
+                    ErrorMessage = I18nManager.S("command.execute_failed", ex.Message)
                 };
             }
         }
@@ -920,7 +942,7 @@ namespace MorningCat.Commands
                 return new PluginCommandResult
                 {
                     Success = false,
-                    ErrorMessage = "命令行不能为空"
+                    ErrorMessage = I18nManager.S("command.command_line_empty")
                 };
             }
 
@@ -930,7 +952,7 @@ namespace MorningCat.Commands
                 return new PluginCommandResult
                 {
                     Success = false,
-                    ErrorMessage = "无效的命令行"
+                    ErrorMessage = I18nManager.S("command.invalid_command_line")
                 };
             }
 

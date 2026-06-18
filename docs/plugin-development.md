@@ -16,6 +16,8 @@
 - [事件处理](#事件处理)
 - [插件间依赖与通信](#插件间依赖与通信)
 - [完整示例](#完整示例)
+- [模块管理器（ModuleManager）](#模块管理器modulemanager)
+- [日志系统](#日志系统)
 
 ## 快速开始
 
@@ -359,30 +361,11 @@ public class MyPluginModule : ModuleBase
 | Website | string | 网站 |
 | Description | string | 描述 |
 | IconBase64 | string | Base64 编码的图标数据 |
+| Tags | string[] | 标签列表 |
 
-**旧版回调方式（已弃用）：**
+**旧版回调方式（已移除）：**
 
-旧版通过 `SetMetadataCallback` 属性回调上报元数据，此方式仍可使用但不推荐：
-
-```csharp
-// 已弃用
-public Action<string, string, string, string, string, string, IEnumerable<string>, IEnumerable<string>> SetMetadataCallback
-{
-    set => _setMetadata = value;
-}
-
-// 在 Init 中调用
-_setMetadata?.Invoke(
-    "ModuleName",        // 模块类名
-    "显示名称",          // 展示名称
-    "作者",              // 作者
-    "https://...",       // 网站
-    "描述文本",          // 描述
-    "Base64图标数据",    // Base64 图标（可选，可为 null）
-    new[] { "PluginA" }, // 插件依赖列表
-    new[] { "Lib.dll" }  // 库依赖列表
-);
-```
+旧版通过 `SetMetadataCallback` 属性回调上报元数据，此方式已被移除，框架不再注入此属性。请使用 `[PluginMetadata]` 特性代替。
 
 ## 核心概念
 
@@ -1838,3 +1821,182 @@ private Task SendScopeDeniedMessageAsync(MessageObject message, CommandScope sco
 - 群管理相关命令（如踢人、禁言）应该使用 `CommandScope.GroupOnly`
 - 通用命令（如帮助、查询）通常使用 `CommandScope.All`
 - 如果命令依赖群 ID（如 `message.GroupId`），则必须使用 `CommandScope.GroupOnly`，否则私聊时 `GroupId` 为 `null` 会导致错误
+
+---
+
+## 模块管理器（ModuleManager）
+
+ModuleManager 是 MorningCat 的插件加载与管理核心，负责模块的扫描、加载、卸载、依赖解析和生命周期管理。
+
+### 依赖注入
+
+ModuleManager 支持多种依赖注入方式，插件可以通过以下方式获取所需服务：
+
+**1. 属性注入（按类型）**
+
+```csharp
+[Inject]
+public ILogger Logger { set => _logger = value; }
+```
+
+**2. 字段注入（按类型）**
+
+```csharp
+[Inject]
+private IMessageService _messageService;
+```
+
+**3. 按名称注入**
+
+```csharp
+[Inject("MDC")]
+public MessageDistributionCore MDC { set => _mdc = value; }
+```
+
+**4. 按类型注入（显式指定）**
+
+```csharp
+[Inject(typeof(CommandRegistry))]
+public CommandRegistry CmdRegistry { set => _cmdRegistry = value; }
+```
+
+**5. SetServices 方法**
+
+```csharp
+public void SetServices(MessageDistributionCore mdc, CommandRegistry cmdReg)
+{
+    _mdc = mdc;
+    _cmdReg = cmdReg;
+}
+```
+
+### 模块间 API 调用
+
+ModuleManager 内置了模块间 API 调用系统，插件可以注册和调用 API：
+
+```csharp
+// 注入 ModuleManager
+[Inject]
+public ModuleManager ModuleManager { get; set; }
+
+// 注册 API
+ModuleManager.RegisterApi("MyPlugin", "GetData", (string key) => {
+    return $"Data for {key}";
+});
+
+// 调用其他插件的 API
+var data = ModuleManager.CallApi<string>("OtherPlugin", "GetData", "user123");
+
+// 检查 API 是否存在
+if (ModuleManager.HasApi("OtherPlugin", "GetData"))
+{
+    // ...
+}
+```
+
+### 模块间事件通信
+
+```csharp
+// 注册事件
+ModuleManager.RegisterEvent("MyPlugin", "DataUpdated");
+
+// 发布事件
+ModuleManager.PublishEvent<string>("MyPlugin", "DataUpdated", "Hello World");
+
+// 订阅其他插件的事件
+ModuleManager.SubscribeEvent<string>("OtherPlugin", "DataUpdated", (sender, data) => {
+    Log.Info($"收到来自 {sender} 的数据: {data}");
+});
+```
+
+### 加载控制机制
+
+ModuleManager 提供了 `OnBeforeModuleLoad` 事件，允许宿主在模块加载前进行干预：
+
+- `ModuleLoadAction.Continue` - 继续加载（默认）
+- `ModuleLoadAction.Skip` - 跳过此模块
+- `ModuleLoadAction.Interrupt` - 中断加载，执行自定义逻辑
+
+MorningCat 使用此机制实现插件签名验证：未通过验证的插件会被跳过，不再需要重命名文件。
+
+### 动态加载与卸载
+
+```csharp
+// 动态加载插件 DLL
+var result = await ModuleManager.DynamicLoadModuleAsync("./Plugins/NewModule.dll");
+if (result.Success)
+    Log.Info($"动态加载成功: {string.Join(",", result.LoadedModules)}");
+
+// 动态卸载模块（会递归卸载依赖它的模块）
+bool ok = await ModuleManager.DynamicUnloadModuleAsync("TargetPlugin");
+```
+
+**注意**：动态卸载会检查所有待卸载模块的 `AllowDynamicLoad` 标志，任一为 `false` 则整体失败。
+
+### 模块声明（ModuleDeclaration）
+
+通过 `RegisterDeclarationProvider` 提供模块声明，声明包含：
+
+| 属性 | 类型 | 说明 | 必需 |
+|------|------|------|------|
+| PluginDependencies | List\<string\> | 插件依赖类名列表 | ✓ |
+| LibraryDependencies | List\<string\> | 库文件名列表 | ✓ |
+| AllowDynamicLoad | bool | 是否允许动态加载/卸载（默认 true） | - |
+
+### 模块状态
+
+| 状态 | 说明 |
+|------|------|
+| NotFound | 模块不存在 |
+| Scanned | 已扫描 |
+| Initializing | 初始化中 |
+| Running | 运行中 |
+| Error | 错误 |
+| Unloaded | 已卸载 |
+| Skipped | 被跳过（未加载） |
+| Interrupted | 被中断 |
+
+---
+
+## 日志系统
+
+MorningCat 使用 `Logging` 命名空间下的日志系统，每个插件拥有独立的 AssemblyLoadContext（ALC），因此可以使用 `Log.Name` 特性来标识日志来源。
+
+### Log.Name 用法
+
+**推荐做法**：在模块初始化时设置 `Log.Name`，后续所有日志自动带上模块标识：
+
+```csharp
+public async Task Init()
+{
+    Log.Name("MyPlugin");
+    Log.Info("初始化完成");       // 输出: [MyPlugin] 初始化完成
+    Log.Debug("调试信息");        // 输出: [MyPlugin] 调试信息
+    Log.Warning("警告信息");      // 输出: [MyPlugin] 警告信息
+    Log.Error("错误信息");        // 输出: [MyPlugin] 错误信息
+}
+```
+
+**不推荐做法**：在每条日志中手动添加模块名前缀：
+
+```csharp
+// 不推荐 - 不优雅且增加开发成本
+Log.Info("[MyPlugin] 初始化完成");
+Log.Debug("[MyPlugin] 调试信息");
+Log.Warning("[MyPlugin] 警告信息");
+```
+
+### 日志级别
+
+| 方法 | 级别 | 用途 |
+|------|------|------|
+| `Log.Debug()` | DEBUG | 调试信息，仅在调试模式下输出 |
+| `Log.Info()` | INFO | 常规信息 |
+| `Log.Warning()` | WARNING | 警告信息 |
+| `Log.Error()` | ERROR | 错误信息 |
+
+### 注意事项
+
+- 每个插件有独立 ALC，`Log.Name` 设置互不影响
+- `Log.Name` 只需在 `Init()` 中设置一次，后续该 ALC 中的所有日志调用都会自动使用该名称
+- 不要在日志消息中手动拼接 `[插件名]` 前缀，这既不优雅也增加维护成本

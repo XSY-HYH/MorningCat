@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Text;
 using Logging;
-using ModuleManagerLib;
 using MorningCat.Commands;
 using MorningCat.PluginAPI;
 using OneBotLib;
@@ -10,7 +9,7 @@ using PyToNet.Bidirectional;
 
 namespace MorningCat.PythonPlugin;
 
-public class PluginHost : ModuleBase
+public class PluginHost
 {
     private BidirectionalEngine? _engine;
     internal string PluginName { get; set; } = "";
@@ -25,24 +24,25 @@ public class PluginHost : ModuleBase
     public CommandRegistry? CommandRegistry { get; set; }
     public PluginCommandAPI? PluginCommandAPI { get; set; }
 
-    public override IEnumerable<string> GetDependencies() => PluginDependencies;
-    public override IEnumerable<string> GetLibraryDependencies() => LibraryDependencies;
+    public IEnumerable<string> GetDependencies() => PluginDependencies;
+    public IEnumerable<string> GetLibraryDependencies() => LibraryDependencies;
 
-    public override async Task Init()
+    public async Task Init()
     {
+        Log.Name("PythonPlugin");
         LoadPluginMetadata();
 
         var pythonPath = FindPythonPath();
         if (pythonPath == null)
         {
-            Log.Error("[PythonPlugin] 未找到 Python 解释器，请安装 Python 3.8+");
+            Log.Error("未找到 Python 解释器，请安装 Python 3.8+");
             return;
         }
 
         var entryCode = LoadResourceCode();
         if (entryCode == null)
         {
-            Log.Error("[PythonPlugin] 未找到入口 Python 文件");
+            Log.Error("未找到入口 Python 文件");
             return;
         }
 
@@ -57,17 +57,17 @@ public class PluginHost : ModuleBase
             await _engine.ExecutePythonAsync(bridgeCode);
             await _engine.ExecutePythonAsync(entryCode);
 
-            Log.Info($"[PythonPlugin] {PluginName} 已加载");
+            Log.Info($"{PluginName} 已加载");
         }
         catch (Exception ex)
         {
-            Log.Error($"[PythonPlugin] 初始化失败: {ex.Message}");
+            Log.Error($"初始化失败: {ex.Message}");
         }
 
         await Task.CompletedTask;
     }
 
-    public override async Task Exit()
+    public async Task Exit()
     {
         try
         {
@@ -80,7 +80,7 @@ public class PluginHost : ModuleBase
         }
         catch { }
 
-        Log.Info($"[PythonPlugin] {PluginName} 已卸载");
+        Log.Info($"{PluginName} 已卸载");
         await Task.CompletedTask;
     }
 

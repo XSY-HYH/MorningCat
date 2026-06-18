@@ -14,8 +14,10 @@ import PageLoading from '@/components/page_loading';
 import QQManager from '@/controllers/qq_manager';
 import ProcessManager from '@/controllers/process_manager';
 import { waitForBackendReady } from '@/utils/process_utils';
+import useI18n from '@/hooks/use-i18n';
 
 const LoginConfigCard = () => {
+  const { t } = useI18n();
   const [isRestarting, setIsRestarting] = useState(false);
   const [loginList, setLoginList] = useState<LoginListItem[]>([]);
   const [loginListLoading, setLoginListLoading] = useState(false);
@@ -52,7 +54,7 @@ const LoginConfigCard = () => {
       setLoginList(list ?? []);
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`获取账号列表失败: ${msg}`);
+      toast.error(t('webui.login.fetch_accounts_failed', msg));
     } finally {
       setLoginListLoading(false);
     }
@@ -61,20 +63,20 @@ const LoginConfigCard = () => {
   const onSubmit = handleOnebotSubmit(async (data) => {
     try {
       await QQManager.setQuickLoginQQ(data.quickLoginQQ);
-      toast.success('保存成功');
+      toast.success(t('webui.login.save_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`保存失败: ${msg}`);
+      toast.error(t('webui.login.save_failed', msg));
     }
   });
 
   const onRefresh = async () => {
     try {
       await refreshQuickLogin();
-      toast.success('刷新成功');
+      toast.success(t('webui.login.refresh_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`刷新失败: ${msg}`);
+      toast.error(t('webui.login.refresh_failed', msg));
     }
   };
 
@@ -82,18 +84,18 @@ const LoginConfigCard = () => {
     setIsRestarting(true);
     try {
       const result = await ProcessManager.restartProcess();
-      toast.success(result.message || '进程重启请求已发送');
+      toast.success(result.message || t('webui.login.restart_request_sent'));
 
       // 轮询探测后端是否恢复
       const isReady = await waitForBackendReady(
         30000, // 30秒超时
         () => {
           setIsRestarting(false);
-          toast.success('进程重启完成');
+          toast.success(t('webui.login.restart_success'));
         },
         () => {
           setIsRestarting(false);
-          toast.error('后端在 30 秒内未响应，请检查 NapCat 运行日志');
+          toast.error(t('webui.login.backend_timeout'));
         }
       );
 
@@ -102,7 +104,7 @@ const LoginConfigCard = () => {
       }
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`进程重启失败: ${msg}`);
+      toast.error(t('webui.login.restart_failed', msg));
       setIsRestarting(false);
     }
   };
@@ -115,18 +117,18 @@ const LoginConfigCard = () => {
 
   return (
     <>
-      <title>登录配置 - NapCat WebUI</title>
-      <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>快速登录QQ</div>
+      <title>{t('webui.config.login.title')}</title>
+      <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>{t('webui.login.quick_login_qq')}</div>
       <Controller
         control={control}
         name='quickLoginQQ'
         render={({ field }) => (
           <Input
             {...field}
-            label='快速登录QQ'
-            placeholder='请输入QQ号'
+            label={t('webui.login.quick_login_label')}
+            placeholder={t('webui.login.qq_placeholder')}
             isDisabled={!!quickLoginError}
-            errorMessage={quickLoginError ? '获取快速登录QQ失败' : undefined}
+            errorMessage={quickLoginError ? t('webui.login.fetch_failed') : undefined}
             classNames={{
               inputWrapper:
                 'bg-default-100/50 dark:bg-white/5 backdrop-blur-md border border-transparent hover:bg-default-200/50 dark:hover:bg-white/10 transition-all shadow-sm data-[hover=true]:border-default-300',
@@ -145,11 +147,11 @@ const LoginConfigCard = () => {
             onPress={fetchLoginList}
             isLoading={loginListLoading}
           >
-            获取已登录账号列表
+            {t('webui.login.fetch_list')}
           </Button>
           {loginList.length > 0 && (
             <span className='text-xs text-default-400'>
-              共 {loginList.length} 个账号，点击选择
+              {t('webui.login.account_count', loginList.length)}
             </span>
           )}
         </div>
@@ -174,20 +176,20 @@ const LoginConfigCard = () => {
                 />
                 <div className='flex flex-col min-w-0'>
                   <span className='text-sm font-medium text-default-700 truncate'>
-                    {item.nickName || '未知昵称'}
+                    {item.nickName || t('webui.login.unknown_nickname')}
                   </span>
                   <span className='text-xs text-default-400 truncate'>
                     {item.uin}
                   </span>
                 </div>
                 {currentQQ === item.uin && (
-                  <span className='ml-auto text-xs text-primary font-medium flex-shrink-0'>已选择</span>
+                  <span className='ml-auto text-xs text-primary font-medium flex-shrink-0'>{t('webui.login.selected')}</span>
                 )}
               </button>
             ))}
             {loginList.filter(item => !item.isQuickLogin).length > 0 && (
               <div className='col-span-full text-xs text-default-400 mt-1'>
-                以下账号不支持快速登录：
+                {t('webui.login.not_support_quick')}
                 {loginList.filter(item => !item.isQuickLogin).map(item => item.uin).join('、')}
               </div>
             )}
@@ -202,7 +204,7 @@ const LoginConfigCard = () => {
         refresh={onRefresh}
       />
       <div className='flex-shrink-0 w-full mt-6 pt-6 border-t border-divider'>
-        <div className='mb-3 text-sm text-default-600'>进程管理</div>
+        <div className='mb-3 text-sm text-default-600'>{t('webui.login.process_management')}</div>
         <Button
           color='warning'
           variant='flat'
@@ -211,17 +213,17 @@ const LoginConfigCard = () => {
           isDisabled={isRestarting}
           fullWidth
         >
-          {isRestarting ? '正在重启进程...' : '重启进程'}
+          {isRestarting ? t('webui.login.restarting') : t('webui.login.restart_process')}
         </Button>
         <div className='mt-2 text-xs text-default-500'>
-          重启进程将关闭当前 Worker 进程，等待 3 秒后启动新进程
+          {t('webui.login.restart_desc')}
         </div>
       </div>
       <Divider className='mt-6' />
       <div className='flex-shrink-0 w-full mt-4'>
-        <div className='mb-3 text-sm text-default-600'>设备 GUID 管理</div>
+        <div className='mb-3 text-sm text-default-600'>{t('webui.login.guid_management')}</div>
         <div className='text-xs text-default-400 mb-3'>
-          GUID 是设备登录唯一识别码，存储在 Registry20 文件中。修改后需重启生效。
+          {t('webui.login.guid_desc')}
         </div>
         <GUIDManager showRestart={false} />
       </div>

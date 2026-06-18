@@ -12,9 +12,6 @@
     <Reference Include="Logging">
       <HintPath>..\Dependency\logs.dll</HintPath>
     </Reference>
-    <Reference Include="ModuleManagerLib">
-      <HintPath>..\Dependency\ModuleManagerLib.dll</HintPath>
-    </Reference>
     <Reference Include="MorningCat">
       <HintPath>..\Dependency\MorningCat.dll</HintPath>
     </Reference>

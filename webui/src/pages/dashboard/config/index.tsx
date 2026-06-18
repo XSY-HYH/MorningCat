@@ -1,6 +1,6 @@
-import MorningCatConfigPage from './morningcat';
+import DynamicConfigPage from './dynamic_config';
 
-export default MorningCatConfigPage;
+export default DynamicConfigPage;
 
 export interface ConfigPageProps {
   children?: React.ReactNode;

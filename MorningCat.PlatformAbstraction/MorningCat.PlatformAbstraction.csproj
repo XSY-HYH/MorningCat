@@ -11,6 +11,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\MorningCat.I18n\MorningCat.I18n.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="DSharpPlus" Version="4.5.0" />
 		<PackageReference Include="System.Text.Json" Version="8.0.5" />
 	</ItemGroup>

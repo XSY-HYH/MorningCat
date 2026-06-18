@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 import SaveButtons from '@/components/button/save_buttons';
 import ImageInput from '@/components/input/image_input';
@@ -30,6 +31,7 @@ function uint8ArrayToBase64Url (uint8Array: Uint8Array): string {
 }
 
 const WebUIConfigCard = () => {
+  const { t } = useI18n();
   const {
     control,
     handleSubmit: handleWebuiSubmit,
@@ -58,10 +60,10 @@ const WebUIConfigCard = () => {
       const options = await WebUIManager.generatePasskeyRegistrationOptions();
       setRegistrationOptions(options);
       console.log('✅ 注册选项已获取并存储');
-      toast.success('注册选项已准备就绪，请点击注册按钮');
+      toast.success(t('webui.webui.options_ready_toast'));
     } catch (error) {
-      console.error('❌ 获取注册选项失败:', error);
-      toast.error('获取注册选项失败，请重试');
+      console.error(t('webui.webui.options_prepare_failed'), error);
+      toast.error(t('webui.webui.options_prepare_failed'));
     } finally {
       setIsLoadingOptions(false);
     }
@@ -76,10 +78,10 @@ const WebUIConfigCard = () => {
     try {
       setCustomIcons(data.customIcons);
       setB64img(data.background);
-      toast.success('保存成功');
+      toast.success(t('webui.webui.save_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`保存失败: ${msg}`);
+      toast.error(t('webui.webui.save_failed', msg));
     }
   });
 
@@ -89,9 +91,9 @@ const WebUIConfigCard = () => {
 
   return (
     <>
-      <title>WebUI配置 - NapCat WebUI</title>
+      <title>{t('webui.config.webui.title')}</title>
       <div className='flex flex-col gap-2'>
-        <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>背景图</div>
+        <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>{t('webui.webui.background_image')}</div>
         <Controller
           control={control}
           name='background'
@@ -103,7 +105,7 @@ const WebUIConfigCard = () => {
         />
       </div>
       <div className='flex flex-col gap-2'>
-        <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>自定义图标</div>
+        <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>{t('webui.webui.custom_icon')}</div>
         {siteConfig.navItems.map((item) => (
           <Controller
             key={item.label}
@@ -119,17 +121,16 @@ const WebUIConfigCard = () => {
         ))}
       </div>
       <div className='flex flex-col gap-2'>
-        <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>Passkey认证</div>
+        <div className='flex-shrink-0 w-full font-bold text-default-600 dark:text-default-400 px-1'>{t('webui.webui.passkey_auth')}</div>
 
         {!window.isSecureContext ? (
           <div className='text-sm text-warning-500 bg-warning-50 p-2 rounded-md border border-warning-200'>
-            ⚠️ 当前处于非安全环境（即既非 HTTPS 也非 localhost），浏览器已禁用 WebAuthn 功能。<br />
-            如果您是通过局域网 IP 访问 WebUI，将无法注册和使用 Passkey。
+            {t('webui.webui.insecure_env')}
           </div>
         ) : (
           <>
             <div className='text-sm text-default-400 mb-2'>
-              注册Passkey后，您可以更便捷地登录WebUI，无需每次输入token
+              {t('webui.webui.passkey_desc')}
             </div>
             <div className='flex gap-2'>
               <Button
@@ -140,7 +141,7 @@ const WebUIConfigCard = () => {
                 className='w-fit'
               >
                 {!isLoadingOptions}
-                准备选项
+                {t('webui.webui.prepare_options')}
               </Button>
               <Button
                 color='primary'
@@ -148,7 +149,7 @@ const WebUIConfigCard = () => {
                 onPress={() => {
                   // 必须在用户手势的同步上下文中立即调用WebAuthn API
                   if (!registrationOptions) {
-                    toast.error('请先点击"准备选项"按钮获取注册选项');
+                    toast.error(t('webui.webui.get_options_first'));
                     return;
                   }
 
@@ -156,7 +157,7 @@ const WebUIConfigCard = () => {
                   console.log('使用预先获取的选项:', registrationOptions);
 
                   if (!navigator.credentials || !navigator.credentials.create) {
-                    toast.error('当前浏览器环境不支持 Passkey 注册。');
+                    toast.error(t('webui.webui.browser_unsupported'));
                     return;
                   }
 
@@ -207,7 +208,7 @@ const WebUIConfigCard = () => {
                       const result = await WebUIManager.verifyPasskeyRegistration(response);
 
                       if (result.verified) {
-                        toast.success('Passkey注册成功！现在您可以使用Passkey自动登录');
+                        toast.success(t('webui.webui.register_success'));
                         setRegistrationOptions(null); // 清除已使用的选项
                       } else {
                         throw new Error('Passkey registration failed');
@@ -215,7 +216,7 @@ const WebUIConfigCard = () => {
                     } catch (verifyError) {
                       console.error('❌ 验证失败:', verifyError);
                       const err = verifyError as Error;
-                      toast.error(`Passkey验证失败: ${err.message}`);
+                      toast.error(t('webui.webui.verify_failed', err.message));
                     }
                   }).catch((error) => {
                     console.error('❌ 注册失败:', error);
@@ -225,25 +226,25 @@ const WebUIConfigCard = () => {
 
                     // Provide more specific error messages
                     if (err.name === 'NotAllowedError') {
-                      toast.error('Passkey注册被拒绝。请确保您允许了生物识别认证权限。');
+                      toast.error(t('webui.webui.register_denied'));
                     } else if (err.name === 'NotSupportedError') {
-                      toast.error('您的浏览器不支持Passkey功能。');
+                      toast.error(t('webui.webui.passkey_unsupported'));
                     } else if (err.name === 'SecurityError') {
-                      toast.error('安全错误：请确保使用HTTPS或localhost环境。');
+                      toast.error(t('webui.webui.security_error'));
                     } else {
-                      toast.error(`Passkey注册失败: ${err.message}`);
+                      toast.error(t('webui.webui.register_failed', err.message));
                     }
                   });
                 }}
                 disabled={!registrationOptions}
                 className='w-fit'
               >
-                注册Passkey
+                {t('webui.webui.register_passkey')}
               </Button>
             </div>
             {registrationOptions && (
               <div className='text-xs text-green-600'>
-                注册选项已准备就绪，可以开始注册
+                {t('webui.webui.options_ready')}
               </div>
             )}
           </>

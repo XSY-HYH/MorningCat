@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Logging;
 using Microsoft.Data.Sqlite;
 using MorningCat.Config;
+using MorningCat.I18n;
 using System.Data.SqlClient;
 
 namespace MorningCat.PluginAPI
@@ -193,7 +194,8 @@ namespace MorningCat.PluginAPI
 
             _dbPath = Path.Combine(dbDir, $"{id}-{pluginClassName}.db");
             _connectionString = $"Data Source={_dbPath}";
-            Log.Info($"[数据库] SQLite数据库已创建: {_dbPath}");
+            Log.Name("Database");
+            Log.Info(I18nManager.S("database.sqlite_created", _dbPath));
         }
 
         private SqliteConnection CreateConnection() => new SqliteConnection(_connectionString);
@@ -373,7 +375,8 @@ namespace MorningCat.PluginAPI
             _connectionString = connectionString;
             _id = id;
             _pluginClassName = pluginClassName;
-            Log.Info($"[数据库] SQL数据库已连接: {_id}-{_pluginClassName}");
+            Log.Name("Database");
+            Log.Info(I18nManager.S("database.sql_connected", _id, _pluginClassName));
         }
 
         private SqlConnection CreateConnection() => new SqlConnection(_connectionString);

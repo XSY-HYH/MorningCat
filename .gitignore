@@ -56,3 +56,8 @@ MorningCatLaunch/mlc.zip
 
 # Publish output
 PublishOutput/
+publish.ps1
+init_error_db.py
+minefield_errors.json
+error_db.sqlite
+manim/

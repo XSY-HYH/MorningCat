@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>5.0.4</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Logging">
+      <HintPath>..\Lib\logs.dll</HintPath>
+    </Reference>
+    <Reference Include="MorningCat.PlatformAbstraction">
+      <HintPath>..\Lib\MorningCat.PlatformAbstraction.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="OneBotLib">
+      <HintPath>..\Lib\OneBotLib.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MorningCat\MorningCat.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -19,6 +19,7 @@ import PluginDetailModal from '@/pages/dashboard/plugin_detail_modal';
 import { PluginStoreItem } from '@/types/plugin-store';
 import useDialog from '@/hooks/use-dialog';
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 /** Fisher-Yates 洗牌算法，返回新数组 */
 function shuffleArray<T> (arr: T[]): T[] {
@@ -35,18 +36,20 @@ interface EmptySectionProps {
 }
 
 const EmptySection: React.FC<EmptySectionProps> = ({ isEmpty }) => {
+  // i18n is used in the parent component, this is a simple static fallback
   return (
     <div
       className={clsx('text-default-400', {
         hidden: !isEmpty,
       })}
     >
-      暂时没有可用的插件
+      {/* t('webui.store.no_plugins') - handled by parent */}
     </div>
   );
 };
 
 export default function PluginStorePage () {
+  const { t } = useI18n();
   const [plugins, setPlugins] = useState<PluginStoreItem[]>([]);
   const [installedPlugins, setInstalledPlugins] = useState<PluginItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -186,12 +189,12 @@ export default function PluginStorePage () {
 
   const tabs = useMemo(() => {
     return [
-      { key: 'all', title: '全部', count: categorizedPlugins.all?.length || 0 },
-      { key: 'official', title: '官方', count: categorizedPlugins.official?.length || 0 },
-      { key: 'tools', title: '工具', count: categorizedPlugins.tools?.length || 0 },
-      { key: 'entertainment', title: '娱乐', count: categorizedPlugins.entertainment?.length || 0 },
-      { key: 'other', title: '其它', count: categorizedPlugins.other?.length || 0 },
-      { key: 'random', title: '随机', count: categorizedPlugins.random?.length || 0 },
+      { key: 'all', title: t('webui.store.tab.all'), count: categorizedPlugins.all?.length || 0 },
+      { key: 'official', title: t('webui.store.tab.official'), count: categorizedPlugins.official?.length || 0 },
+      { key: 'tools', title: t('webui.store.tab.tools'), count: categorizedPlugins.tools?.length || 0 },
+      { key: 'entertainment', title: t('webui.store.tab.entertainment'), count: categorizedPlugins.entertainment?.length || 0 },
+      { key: 'other', title: t('webui.store.tab.other'), count: categorizedPlugins.other?.length || 0 },
+      { key: 'random', title: t('webui.store.tab.random'), count: categorizedPlugins.random?.length || 0 },
     ];
   }, [categorizedPlugins]);
 
@@ -222,13 +225,13 @@ export default function PluginStorePage () {
   };
 
   const installPluginWithSSE = async (pluginId: string, mirror?: string) => {
-    const loadingToast = toast.loading('正在准备安装...');
+    const loadingToast = toast.loading(t('webui.store.preparing_install'));
 
     try {
       // 获取认证 token
       const token = localStorage.getItem(key.token);
       if (!token) {
-        toast.error('未登录，请先登录', { id: loadingToast });
+        toast.error(t('webui.store.not_logged_in'), { id: loadingToast });
         return;
       }
       const _token = JSON.parse(token);
@@ -254,11 +257,11 @@ export default function PluginStorePage () {
           const data = JSON.parse(event.data);
 
           if (data.error) {
-            toast.error(`安装失败: ${data.error}`, { id: loadingToast });
+            toast.error(t('webui.store.install_failed_error', data.error), { id: loadingToast });
             setInstallProgress(prev => ({ ...prev, show: false }));
             eventSource.close();
           } else if (data.success) {
-            toast.success('插件安装成功！', { id: loadingToast });
+            toast.success(t('webui.store.install_success'), { id: loadingToast });
             setInstallProgress(prev => ({ ...prev, show: false }));
             eventSource.close();
             // 刷新插件列表
@@ -266,27 +269,27 @@ export default function PluginStorePage () {
             // 安装成功后检查插件管理器状态
             if (pluginManagerNotFound) {
               dialog.confirm({
-                title: '插件管理器未加载',
+                title: t('webui.store.pm_not_loaded'),
                 content: (
                   <div className='space-y-2'>
                     <p className='text-sm text-default-600'>
-                      插件已安装成功，但插件管理器尚未加载。
+                      {t('webui.store.pm_not_loaded_desc1')}
                     </p>
                     <p className='text-sm text-default-600'>
-                      是否立即注册插件管理器？注册后插件才能正常运行。
+                      {t('webui.store.pm_not_loaded_desc2')}
                     </p>
                   </div>
                 ),
-                confirmText: '注册插件管理器',
-                cancelText: '稍后再说',
+                confirmText: t('webui.store.register_pm'),
+                cancelText: t('webui.store.later'),
                 onConfirm: () => {
                   (async () => {
                     try {
                       await PluginManager.registerPluginManager();
-                      toast.success('插件管理器注册成功');
+                      toast.success(t('webui.store.pm_register_success'));
                       setPluginManagerNotFound(false);
                     } catch (e: any) {
-                      toast.error('注册失败: ' + e.message);
+                      toast.error(t('webui.store.pm_register_failed', e.message));
                     }
                   })();
                 },
@@ -315,18 +318,18 @@ export default function PluginStorePage () {
       };
 
       eventSource.onerror = (error) => {
-        console.error('SSE连接出错:', error);
-        toast.error('连接中断，安装失败', { id: loadingToast });
+        console.error(t('webui.store.sse_error'), error);
+        toast.error(t('webui.store.sse_disconnected'), { id: loadingToast });
         setInstallProgress(prev => ({ ...prev, show: false }));
         eventSource.close();
       };
     } catch (error: any) {
-      toast.error(`安装失败: ${error.message || '未知错误'}`, { id: loadingToast });
+      toast.error(t('webui.store.install_failed_error', error.message || t('webui.store.unknown_error')), { id: loadingToast });
     }
   };
 
   const getStoreSourceDisplayName = () => {
-    if (!currentStoreSource) return '默认源';
+    if (!currentStoreSource) return t('webui.store.default_source');
     try {
       return new URL(currentStoreSource).hostname;
     } catch {
@@ -339,7 +342,7 @@ export default function PluginStorePage () {
 
   return (
     <>
-      <title>插件商店 - NapCat WebUI</title>
+      <title>{t('webui.store.title')}</title>
       <div className='p-2 md:p-4 relative'>
         {/* 固定头部区域 */}
         <div className={clsx(
@@ -352,8 +355,8 @@ export default function PluginStorePage () {
           {/* 头部布局：标题 + 搜索 + 工具栏 */}
           <div className='flex flex-col md:flex-row mb-4 items-start md:items-center justify-between gap-4'>
             <div className='flex items-center gap-3 flex-shrink-0'>
-              <h1 className='text-2xl font-bold'>插件商店</h1>
-              <Tooltip content='刷新列表'>
+              <h1 className='text-2xl font-bold'>{t('webui.store.heading')}</h1>
+              <Tooltip content={t('webui.store.refresh')}>
                 <Button
                   isIconOnly
                   size='sm'
@@ -372,7 +375,7 @@ export default function PluginStorePage () {
             <div className='flex items-center gap-3 w-full md:w-auto flex-1 justify-end'>
               <Input
                 ref={searchInputRef}
-                placeholder='搜索(Ctrl+F)...'
+                placeholder={t('webui.store.search_placeholder')}
                 startContent={<IoMdSearch className='text-default-400' />}
                 value={searchQuery}
                 onValueChange={handleSearchChange}
@@ -386,8 +389,8 @@ export default function PluginStorePage () {
 
               {/* 商店列表源简易卡片 */}
               <div className='hidden sm:flex items-center gap-2 bg-default-100/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 dark:border-white/10'>
-                <span className='text-xs text-default-500 whitespace-nowrap'>源: {getStoreSourceDisplayName()}</span>
-                <Tooltip content='切换列表源'>
+                <span className='text-xs text-default-500 whitespace-nowrap'>{t('webui.store.source')}: {getStoreSourceDisplayName()}</span>
+                <Tooltip content={t('webui.store.switch_source')}>
                   <Button
                     isIconOnly
                     size='sm'
@@ -538,7 +541,7 @@ export default function PluginStorePage () {
             )}
           >
             <div className='flex flex-col gap-1'>
-              <h3 className='text-lg font-bold text-default-900'>安装插件</h3>
+              <h3 className='text-lg font-bold text-default-900'>{t('webui.store.installing')}</h3>
               <p className='text-sm text-default-500 font-medium'>{installProgress.message}</p>
             </div>
 
@@ -553,10 +556,10 @@ export default function PluginStorePage () {
                   )}
                   {installProgress.eta !== undefined && installProgress.eta !== null && (
                     <p className='text-xs text-default-400'>
-                      剩余时间: {
+                      {t('webui.store.remaining_time')}: {
                         installProgress.eta > 0
                           ? (installProgress.eta < 60 ? `${installProgress.eta}s` : `${Math.floor(installProgress.eta / 60)}m ${installProgress.eta % 60}s`)
-                          : '计算中...'
+                          : t('webui.store.calculating')
                       }
                     </p>
                   )}
@@ -574,8 +577,8 @@ export default function PluginStorePage () {
 
               {/* 详细数据 (大小) - 始终显示 */}
               <div className='flex items-center justify-between text-xs text-default-400 font-bold tracking-tight'>
-                <span>已下载 {installProgress.downloadedStr || '0.0MB'}</span>
-                <span>总计 {installProgress.totalStr || '获取中...'}</span>
+                <span>{t('webui.store.downloaded')} {installProgress.downloadedStr || '0.0MB'}</span>
+                <span>{t('webui.store.total')} {installProgress.totalStr || t('webui.store.fetching')}</span>
               </div>
             </div>
           </div>

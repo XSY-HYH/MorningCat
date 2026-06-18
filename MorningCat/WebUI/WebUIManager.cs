@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Logging;
 using ModuleManagerLib;
 using MorningCat.Config;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 using MorningCat.Modules;
@@ -19,7 +20,7 @@ using MorningCat.WebUI;
 
 namespace MorningCat.WebUI
 {
-    public class WebUIManager : ISystemInfoProvider, IBotInfoProvider, IPluginInfoProvider, ILogProvider, IConfigProvider, IMessageProvider, IDatabaseInfoProvider, IMessageSendProvider
+    public class WebUIManager : ISystemInfoProvider, IBotInfoProvider, IPluginInfoProvider, ILogProvider, IConfigProvider, IMessageProvider, IDatabaseInfoProvider, IMessageSendProvider, II18nProvider
     {
         private WebUIServer? _server;
         private readonly ModuleManager _moduleManager;
@@ -32,7 +33,7 @@ namespace MorningCat.WebUI
         private readonly ConfigManager _configManager;
         private readonly PluginConfigManager _pluginConfigManager;
         private BotInfo? _botInfo;
-        private bool _isNapCatConnected = true;
+        private bool _isOneBotConnected = true;
         private readonly List<Action<LogEntry>> _logSubscribers = new List<Action<LogEntry>>();
         private readonly List<Action<string>> _rawLogSubscribers = new List<Action<string>>();
         private readonly object _logLock = new object();
@@ -47,6 +48,7 @@ namespace MorningCat.WebUI
         private MessageDistributionCore? _mdc;
         private readonly List<Action<MessageEntry>> _messageSubscribers = new List<Action<MessageEntry>>();
         private readonly object _messageLock = new object();
+        private I18n.I18nManager? _i18nManager;
 
         public int Port => _server?.Port ?? 0;
         public bool IsRunning => _server?.IsRunning ?? false;
@@ -178,6 +180,11 @@ namespace MorningCat.WebUI
             _mdc = mdc;
         }
 
+        public void SetI18nManager(I18n.I18nManager i18nManager)
+        {
+            _i18nManager = i18nManager;
+        }
+
         /// <summary>获取OneBot适配器（用于OneBot特有API）</summary>
         private OneBotPlatformAdapter? GetOneBotAdapter()
         {
@@ -261,22 +268,22 @@ namespace MorningCat.WebUI
         {
             if (_botInfo != null)
             {
-                _botInfo.IsNapCatConnected = _isNapCatConnected;
+                _botInfo.IsOneBotConnected = _isOneBotConnected;
             }
             return _botInfo;
         }
 
         public void SetConnectionStatus(bool isConnected)
         {
-            _isNapCatConnected = isConnected;
-            Log.Debug($"连接状态更新:{(isConnected ? "已连接" : "已断开")}");
+            _isOneBotConnected = isConnected;
+            Log.Debug(I18nManager.S("webui.connection_status", isConnected ? "connected" : "disconnected"));
         }
 
         public async Task StartAsync()
         {
             if (_server != null && _server.IsRunning)
             {
-                Log.Warning("WebUI已在运行中！");
+                Log.Warning(I18nManager.S("webui.already_running"));
                 return;
             }
 
@@ -289,24 +296,25 @@ namespace MorningCat.WebUI
             _server.SetMessageProvider(this);
             _server.SetDatabaseInfoProvider(this);
             _server.SetMessageSendProvider(this);
+            _server.SetI18nProvider(this);
             _server.SetUpdateCallback(() => { Program.UpdateCallback?.Invoke(); });
             _server.OnCredentialsChanged = OnCredentialsChanged;
             var pluginStoreUrl = _configManager.GetConfig().PluginStoreUrl;
-            Log.Debug($"[WebUIManager] StartAsync 读取 PluginStoreUrl: '{pluginStoreUrl}'");
+            Log.Debug(I18nManager.S("webui.plugin_store_url_read", pluginStoreUrl));
             _server.UpdatePluginMarketUrl(pluginStoreUrl);
 
             try
             {
                 await _server.StartAsync(_config.Port, _config.ListenAddress);
-                Log.Info($"WebUI已启动: http://{_config.ListenAddress}:{_config.Port}");
+                Log.Info(I18nManager.S("webui.started", _config.ListenAddress, _config.Port));
                 
                 var accountService = _server.GetAccountService();
                 var (username, password) = accountService.GetDefaultCredentials();
-                Log.Info($"WebUI默认账户:{username} / {password}");    
+                Log.Info(I18nManager.S("webui.default_credentials", username, password));    
             }
             catch (Exception ex)
             {
-                Log.Error($"WebUI启动失败喵: {ex.Message}");
+                Log.Error(I18nManager.S("webui.start_failed", ex.Message));
             }
         }
 
@@ -321,11 +329,11 @@ namespace MorningCat.WebUI
                 });
                 _config.Username = username;
                 _config.Password = password;
-                Log.Info("WebUI凭据已更新并保存到配置文件");
+                Log.Info(I18nManager.S("webui.credentials_updated"));
             }
             catch (Exception ex)
             {
-                Log.Error($"保存WebUI凭据失败喵: {ex.Message}");
+                Log.Error(I18nManager.S("webui.credentials_save_failed", ex.Message));
             }
         }
 
@@ -334,7 +342,7 @@ namespace MorningCat.WebUI
             if (_server != null)
             {
                 await _server.StopAsync();
-                Log.Info("WebUI 已停止");
+                Log.Info(I18nManager.S("webui.stopped"));
             }
         }
 
@@ -385,7 +393,7 @@ namespace MorningCat.WebUI
 
         public void RequestRestart()
         {
-            Log.Info("请求重启应用程序...");
+            Log.Info(I18nManager.S("webui.restart_requested"));
             if (_restartCallback != null)
             {
                 Task.Run(async () =>
@@ -396,7 +404,7 @@ namespace MorningCat.WebUI
             }
             else
                 {
-                Log.Warning("未设置重启回调，使用默认实现");
+                Log.Warning(I18nManager.S("webui.restart_no_callback"));
                 Task.Run(async () =>
                 {
                     await Task.Delay(500);
@@ -412,7 +420,7 @@ namespace MorningCat.WebUI
 
         public void RequestShutdown()
         {
-            Log.Info("请求关闭应用程序...");
+            Log.Info(I18nManager.S("webui.shutdown_requested"));
             if (_shutdownCallback != null)
             {
                 Task.Run(async () =>
@@ -423,7 +431,7 @@ namespace MorningCat.WebUI
             }
             else
                 {
-                Log.Warning("未设置关闭回调，使用默认实现");
+                Log.Warning(I18nManager.S("webui.shutdown_no_callback"));
                 Task.Run(async () =>
                 {
                     await Task.Delay(500);
@@ -520,7 +528,7 @@ namespace MorningCat.WebUI
             var result = new List<PluginInfo>();
             var allModules = _moduleManager.GetAllModules();
 
-            Log.Debug($"[GetPlugins] 获取插件列表，共 {allModules.Count} 个模块");
+            Log.Debug(I18nManager.S("webui.plugin.get_plugins_count", allModules.Count));
             
             foreach (var module in allModules)
             {
@@ -540,11 +548,11 @@ namespace MorningCat.WebUI
                     info.Description = metadata.Description;
                     info.IconBase64 = metadata.IconBase64;
                     info.Tags = metadata.Tags;
-                    Log.Debug($"[GetPlugins] 模块 {module.ModuleName}: DisplayName={metadata.DisplayName}, Author={metadata.Author}, HasIcon={!string.IsNullOrEmpty(metadata.IconBase64)}");
+                    Log.Debug(I18nManager.S("webui.plugin.module_metadata", module.ModuleName, metadata.DisplayName, metadata.Author, !string.IsNullOrEmpty(metadata.IconBase64)));
                 }
                 else
                 {
-                    Log.Debug($"[GetPlugins] 模块 {module.ModuleName}: 无元数据");
+                    Log.Debug(I18nManager.S("webui.plugin.module_no_metadata", module.ModuleName));
                 }
 
                 result.Add(info);
@@ -556,7 +564,7 @@ namespace MorningCat.WebUI
                 if (Directory.Exists(modulesDir))
                 {
                     var disabledFiles = Directory.GetFiles(modulesDir, "*.dll.disabled");
-                    Log.Debug($"[GetPlugins] 发现 {disabledFiles.Length} 个禁用的插件");
+                    Log.Debug(I18nManager.S("webui.plugin.disabled_count", disabledFiles.Length));
                     foreach (var file in disabledFiles)
                     {
                         var fileName = Path.GetFileNameWithoutExtension(file);
@@ -593,16 +601,16 @@ namespace MorningCat.WebUI
                         }
                         
                         result.Add(info);
-                        Log.Debug($"[GetPlugins] 禁用插件: {fileName}");
+                        Log.Debug(I18nManager.S("webui.plugin.disabled_plugin", fileName));
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"[GetPlugins] 获取禁用插件失败: {ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.get_disabled_failed", ex.Message));
             }
 
-            Log.Debug($"[GetPlugins] 返回 {result.Count} 个插件");
+            Log.Debug(I18nManager.S("webui.plugin.return_count", result.Count));
             return result;
         }
 
@@ -616,66 +624,66 @@ namespace MorningCat.WebUI
         {
             try
             {
-                Log.Debug($"[DisablePlugin] 开始禁用插件: {moduleName}");
+                Log.Debug(I18nManager.S("webui.plugin.disable_start", moduleName));
                 
                 var allModules = _moduleManager.GetAllModules();
                 var module = allModules.FirstOrDefault(m => m.ModuleName == moduleName);
                 
                 if (module == null)
                 {
-                    Log.Warning($"[DisablePlugin] 未找到模块: {moduleName}");
+                    Log.Warning(I18nManager.S("webui.plugin.disable_not_found", moduleName));
                     return false;
                 }
 
                 var assemblyPath = module.AssemblyPath;
                 if (string.IsNullOrEmpty(assemblyPath))
                 {
-                    Log.Warning($"[DisablePlugin] 插件路径无效: {moduleName}");
+                    Log.Warning(I18nManager.S("webui.plugin.disable_invalid_path", moduleName));
                     return false;
                 }
 
                 if (assemblyPath.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase))
                 {
-                    Log.Debug($"[DisablePlugin] 插件已被禁用: {moduleName}");
+                    Log.Debug(I18nManager.S("webui.plugin.disable_already", moduleName));
                     return true;
                 }
 
                 if (module.Status == ModuleStatus.Running)
                 {
-                    Log.Debug($"[DisablePlugin] 插件正在运行，尝试卸载...");
+                    Log.Debug(I18nManager.S("webui.plugin.disable_unloading"));
                     var success = _moduleManager.UnloadModuleAsync(moduleName).GetAwaiter().GetResult();
-                    Log.Debug($"[DisablePlugin] 卸载结果: {success}");
+                    Log.Debug(I18nManager.S("webui.plugin.disable_unload_result", success));
                 }
 
                 var disabledPath = $"{assemblyPath}.disabled";
-                Log.Debug($"[DisablePlugin] 检查文件: {assemblyPath}");
+                Log.Debug(I18nManager.S("webui.plugin.disable_check_file", assemblyPath));
                 
                 if (File.Exists(assemblyPath))
                 {
-                    Log.Debug($"[DisablePlugin] 文件存在，尝试重命名为: {disabledPath}");
+                    Log.Debug(I18nManager.S("webui.plugin.disable_rename_to", disabledPath));
                     try
                     {
                         File.Move(assemblyPath, disabledPath);
-                        Log.Info($"[DisablePlugin] 插件 {moduleName} 已禁用（重启后生效）");
+                        Log.Info(I18nManager.S("webui.plugin.disable_success", moduleName));
                         return true;
                     }
                     catch (IOException ex)
                     {
-                        Log.Debug($"[DisablePlugin] 文件被占用: {ex.Message}，创建标记文件");
+                        Log.Debug(I18nManager.S("webui.plugin.disable_file_locked", ex.Message));
                         File.WriteAllText(disabledPath, "");
-                        Log.Info($"[DisablePlugin] 插件 {moduleName} 已标记为禁用（文件被占用，重启后生效）");
+                        Log.Info(I18nManager.S("webui.plugin.disable_marked", moduleName));
                         return true;
                     }
                 }
                 else
                 {
-                    Log.Warning($"[DisablePlugin] 文件不存在: {assemblyPath}");
+                    Log.Warning(I18nManager.S("webui.plugin.disable_file_not_exist", assemblyPath));
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"[DisablePlugin] 禁用插件失败: {ex.Message}\n{ex.StackTrace}");
+                Log.Error(I18nManager.S("webui.plugin.disable_failed", ex.Message));
                 return false;
             }
         }
@@ -684,7 +692,7 @@ namespace MorningCat.WebUI
         {
             try
             {
-                Log.Debug($"[EnablePlugin] 开始启用插件: {moduleName}");
+                Log.Debug(I18nManager.S("webui.plugin.enable_start", moduleName));
                 
                 var modulesDir = ConfigManager.GetCorrectedPath("Modules");
                 
@@ -695,7 +703,7 @@ namespace MorningCat.WebUI
                 {
                     assemblyName = moduleName;
                     disabledPath = Path.Combine(modulesDir, $"{assemblyName}.dll.disabled");
-                    Log.Debug($"[EnablePlugin] 通过程序集名查找: {disabledPath}");
+                    Log.Debug(I18nManager.S("webui.plugin.enable_find_by_assembly", disabledPath));
                 }
                 else
                 {
@@ -704,7 +712,7 @@ namespace MorningCat.WebUI
                     {
                         assemblyName = reverseMapping.Key;
                         disabledPath = Path.Combine(modulesDir, $"{assemblyName}.dll.disabled");
-                        Log.Debug($"[EnablePlugin] 通过模块名反查程序集名: {assemblyName} -> {disabledPath}");
+                        Log.Debug(I18nManager.S("webui.plugin.enable_reverse_mapping", assemblyName, disabledPath));
                     }
                 }
                 
@@ -712,27 +720,27 @@ namespace MorningCat.WebUI
                 {
                     disabledPath = Path.Combine(modulesDir, $"{moduleName}.dll.disabled");
                     assemblyName = moduleName;
-                    Log.Debug($"[EnablePlugin] 直接使用模块名查找: {disabledPath}");
+                    Log.Debug(I18nManager.S("webui.plugin.enable_find_by_name", disabledPath));
                 }
                 
-                Log.Debug($"[EnablePlugin] 检查禁用文件: {disabledPath}");
+                Log.Debug(I18nManager.S("webui.plugin.enable_check_disabled", disabledPath));
                 
                 if (!File.Exists(disabledPath))
                 {
-                    Log.Warning($"[EnablePlugin] 禁用文件不存在: {disabledPath}");
+                    Log.Warning(I18nManager.S("webui.plugin.enable_disabled_not_found", disabledPath));
                     return false;
                 }
 
                 var dllPath = disabledPath.Substring(0, disabledPath.Length - ".disabled".Length);
-                Log.Debug($"[EnablePlugin] 目标路径: {dllPath}");
+                Log.Debug(I18nManager.S("webui.plugin.enable_target_path", dllPath));
                 
                 File.Move(disabledPath, dllPath);
-                Log.Info($"[EnablePlugin] 插件 {moduleName} 已启用（重启后生效）");
+                Log.Info(I18nManager.S("webui.plugin.enable_success", moduleName));
                 return true;
             }
             catch (Exception ex)
             {
-                Log.Error($"[EnablePlugin] 启用插件失败: {ex.Message}\n{ex.StackTrace}");
+                Log.Error(I18nManager.S("webui.plugin.enable_failed", ex.Message));
                 return false;
             }
         }
@@ -741,51 +749,51 @@ namespace MorningCat.WebUI
         {
             try
             {
-                Log.Debug($"[UnloadPlugin] 开始卸载插件: {moduleName}");
+                Log.Debug(I18nManager.S("webui.plugin.unload_start", moduleName));
                 
                 if (IsBuiltinModule(moduleName))
                 {
-                    Log.Warning($"[UnloadPlugin] 无法卸载内置模块: {moduleName}");
+                    Log.Warning(I18nManager.S("webui.plugin.unload_builtin", moduleName));
                     return false;
                 }
 
                 var dependents = _moduleManager.GetModulesDependentOn(moduleName);
                 if (dependents != null && dependents.Count > 0)
                 {
-                    Log.Warning($"[UnloadPlugin] 无法卸载 {moduleName}: 以下插件依赖此模块: {string.Join(", ", dependents)}");
+                    Log.Warning(I18nManager.S("webui.plugin.unload_dependent", moduleName, string.Join(", ", dependents)));
                     return false;
                 }
 
-                Log.Debug($"[UnloadPlugin] 调用 UnloadModuleAsync...");
+                Log.Debug(I18nManager.S("webui.plugin.unload_calling"));
                 var success = _moduleManager.UnloadModuleAsync(moduleName).GetAwaiter().GetResult();
-                Log.Debug($"[UnloadPlugin] UnloadModuleAsync 返回: {success}");
+                Log.Debug(I18nManager.S("webui.plugin.unload_result", success));
                 
                 if (success)
                 {
                     _pluginMetadata.Remove(moduleName);
-                    Log.Info($"[UnloadPlugin] 插件 {moduleName} 已卸载");
+                    Log.Info(I18nManager.S("webui.plugin.unload_success", moduleName));
                     return true;
                 }
-                Log.Warning($"[UnloadPlugin] UnloadModuleAsync 返回 false");
+                    Log.Warning(I18nManager.S("webui.plugin.unload_returned_false"));
                 return false;
             }
             catch (Exception ex)
             {
-                Log.Error($"[UnloadPlugin] 卸载插件失败: {ex.Message}\n{ex.StackTrace}");
+                Log.Error(I18nManager.S("webui.plugin.unload_failed", ex.Message));
                 return false;
             }
         }
 
         public PluginDetail? GetPluginDetail(string moduleName)
         {
-            Log.Debug($"[GetPluginDetail] 获取插件详情: {moduleName}");
+            Log.Debug(I18nManager.S("webui.plugin.detail_start", moduleName));
             
             var allModules = _moduleManager.GetAllModules();
             var module = allModules.FirstOrDefault(m => m.ModuleName == moduleName);
             
             if (module != null)
             {
-                Log.Debug($"[GetPluginDetail] 找到模块: {module.ModuleName}, 状态: {module.Status}");
+                Log.Debug(I18nManager.S("webui.plugin.detail_found", module.ModuleName, module.Status));
                 
                 var detail = new PluginDetail
                 {
@@ -806,21 +814,21 @@ namespace MorningCat.WebUI
                     detail.Website = metadata.Website;
                     detail.IconBase64 = metadata.IconBase64;
                     detail.Tags = metadata.Tags;
-                    Log.Debug($"[GetPluginDetail] 元数据: DisplayName={metadata.DisplayName}, Author={metadata.Author}, HasIcon={!string.IsNullOrEmpty(metadata.IconBase64)}");
+                    Log.Debug(I18nManager.S("webui.plugin.detail_metadata", metadata.DisplayName, metadata.Author, !string.IsNullOrEmpty(metadata.IconBase64)));
                 }
 
                 var deps = _moduleManager.GetModuleDependencies(module.ModuleName);
                 if (deps != null)
                 {
                     detail.Dependencies = deps;
-                    Log.Debug($"[GetPluginDetail] 依赖: {string.Join(", ", deps)}");
+                    Log.Debug(I18nManager.S("webui.plugin.detail_deps", string.Join(", ", deps)));
                 }
 
                 var dependents = _moduleManager.GetModulesDependentOn(module.ModuleName);
                 if (dependents != null)
                 {
                     detail.Dependents = dependents;
-                    Log.Debug($"[GetPluginDetail] 被依赖: {string.Join(", ", dependents)}");
+                    Log.Debug(I18nManager.S("webui.plugin.detail_dependents", string.Join(", ", dependents)));
                 }
 
                 return detail;
@@ -830,7 +838,7 @@ namespace MorningCat.WebUI
             var disabledPath = Path.Combine(modulesDir, $"{moduleName}.dll.disabled");
             if (File.Exists(disabledPath))
             {
-                Log.Debug($"[GetPluginDetail] 找到禁用插件: {disabledPath}");
+                Log.Debug(I18nManager.S("webui.plugin.detail_found_disabled", disabledPath));
                 return new PluginDetail
                 {
                     ModuleName = moduleName,
@@ -842,25 +850,25 @@ namespace MorningCat.WebUI
                 };
             }
 
-            Log.Debug($"[GetPluginDetail] 未找到插件: {moduleName}");
+            Log.Debug(I18nManager.S("webui.plugin.detail_not_found", moduleName));
             return null;
         }
 
         public List<PluginConfigInfo> GetPluginConfigs(string moduleName)
         {
-            Log.Debug($"[GetPluginConfigs] 请求插件配置列表: moduleName='{moduleName}'");
+            Log.Debug(I18nManager.S("webui.plugin.configs_request", moduleName));
             var configs = new List<PluginConfigInfo>();
             try
             {
                 var resolvedName = _pluginConfigManager.ResolvePluginName(moduleName);
-                Log.Debug($"[GetPluginConfigs] 解析插件名: '{moduleName}' -> '{resolvedName}'");
+                Log.Debug(I18nManager.S("webui.plugin.configs_resolved", moduleName, resolvedName));
                 
                 var registered = _pluginConfigManager.GetRegisteredConfigs(moduleName);
-                Log.Debug($"[GetPluginConfigs] 已注册配置数: {registered.Count}");
+                Log.Debug(I18nManager.S("webui.plugin.configs_registered_count", registered.Count));
                 
                 foreach (var reg in registered)
                 {
-                    Log.Debug($"[GetPluginConfigs] 配置项: {reg.ConfigName}, 路径: {reg.FilePath}, 文件存在: {File.Exists(reg.FilePath)}");
+                    Log.Debug(I18nManager.S("webui.plugin.configs_item", reg.ConfigName, reg.FilePath, File.Exists(reg.FilePath)));
                     configs.Add(new PluginConfigInfo
                     {
                         ConfigName = reg.ConfigName,
@@ -872,7 +880,7 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"获取插件配置列表失败: {ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.get_configs_failed", ex.Message));
             }
             
             return configs;
@@ -886,7 +894,7 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"获取插件配置失败: {ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.get_config_failed", ex.Message));
                 return null;
             }
         }
@@ -901,7 +909,7 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"保存插件配置失败: {ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.save_config_failed", ex.Message));
                 return false;
             }
         }
@@ -911,13 +919,20 @@ namespace MorningCat.WebUI
             var config = _configManager.GetConfig();
             return new WebUIConfigData
             {
-                NapCatServerUrl = config.NapCatServerUrl,
-                NapCatToken = config.NapCatToken,
+                OneBotServerUrl = config.OneBotServerUrl,
+                OneBotToken = config.OneBotToken,
                 ModulesDirectory = config.ModulesDirectory,
                 AutoLoadModules = config.AutoLoadModules,
+                EnableMctStatus = config.EnableMctStatus,
                 OwnerQQ = config.OwnerQQ,
                 BlockedUsers = config.BlockedUsers,
                 BlockedGroups = config.BlockedGroups,
+                Lang = config.Lang,
+                Database = new DatabaseConfigData
+                {
+                    Type = config.Database.Type,
+                    ConnectionString = config.Database.ConnectionString
+                },
                 PluginStoreUrl = config.PluginStoreUrl,
                 WebUI = new WebUISettings
                 {
@@ -937,15 +952,19 @@ namespace MorningCat.WebUI
             
             _configManager.UpdateConfig(config =>
             {
-                config.NapCatServerUrl = webUIConfig.NapCatServerUrl;
-                config.NapCatToken = webUIConfig.NapCatToken;
+                config.OneBotServerUrl = webUIConfig.OneBotServerUrl;
+                config.OneBotToken = webUIConfig.OneBotToken;
                 config.ModulesDirectory = webUIConfig.ModulesDirectory;
                 config.AutoLoadModules = webUIConfig.AutoLoadModules;
+                config.EnableMctStatus = webUIConfig.EnableMctStatus;
                 config.OwnerQQ = webUIConfig.OwnerQQ;
                 config.BlockedUsers = webUIConfig.BlockedUsers;
                 config.BlockedGroups = webUIConfig.BlockedGroups;
+                config.Lang = webUIConfig.Lang;
+                config.Database.Type = webUIConfig.Database.Type;
+                config.Database.ConnectionString = webUIConfig.Database.ConnectionString;
                 config.PluginStoreUrl = webUIConfig.PluginStoreUrl;
-                Log.Debug($"[WebUIManager] UpdateConfig 更新 PluginStoreUrl: '{webUIConfig.PluginStoreUrl}'");
+                Log.Debug(I18nManager.S("webui.plugin_store_url_updated", webUIConfig.PluginStoreUrl));
                 _server?.UpdatePluginMarketUrl(webUIConfig.PluginStoreUrl);
                 config.WebUI.Enabled = webUIConfig.WebUI.Enabled;
                 config.WebUI.ListenAddress = webUIConfig.WebUI.ListenAddress;
@@ -1011,7 +1030,7 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"读取日志失败: {ex.Message}");
+                Log.Error(I18nManager.S("webui.log_read_failed", ex.Message));
             }
 
             return result;
@@ -1085,11 +1104,11 @@ namespace MorningCat.WebUI
         {
             try
             {
-                Log.Debug($"[DeletePlugin] 开始删除插件: {moduleName}");
+                Log.Debug(I18nManager.S("webui.plugin.delete_start", moduleName));
                 
                 if (IsBuiltinModule(moduleName))
                 {
-                    Log.Warning($"[DeletePlugin] 无法删除内置模块: {moduleName}");
+                    Log.Warning(I18nManager.S("webui.plugin.delete_builtin", moduleName));
                     return false;
                 }
 
@@ -1098,29 +1117,29 @@ namespace MorningCat.WebUI
                 
                 if (module == null)
                 {
-                    Log.Warning($"[DeletePlugin] 未找到模块: {moduleName}");
+                    Log.Warning(I18nManager.S("webui.plugin.delete_not_found", moduleName));
                     return false;
                 }
 
                 var assemblyPath = module.AssemblyPath;
                 if (string.IsNullOrEmpty(assemblyPath))
                 {
-                    Log.Warning($"[DeletePlugin] 插件路径无效: {moduleName}");
+                    Log.Warning(I18nManager.S("webui.plugin.delete_invalid_path", moduleName));
                     return false;
                 }
 
                 var dependents = _moduleManager.GetModulesDependentOn(moduleName);
                 if (dependents != null && dependents.Count > 0)
                 {
-                    Log.Warning($"[DeletePlugin] 无法删除 {moduleName}: 以下插件依赖此模块: {string.Join(", ", dependents)}");
+                    Log.Warning(I18nManager.S("webui.plugin.delete_dependent", moduleName, string.Join(", ", dependents)));
                     return false;
                 }
 
                 if (module.Status == ModuleStatus.Running)
                 {
-                    Log.Debug($"[DeletePlugin] 插件正在运行，尝试卸载...");
+                    Log.Debug(I18nManager.S("webui.plugin.delete_unloading"));
                     var unloadSuccess = _moduleManager.UnloadModuleAsync(moduleName).GetAwaiter().GetResult();
-                    Log.Debug($"[DeletePlugin] 卸载结果: {unloadSuccess}");
+                    Log.Debug(I18nManager.S("webui.plugin.delete_unload_result", unloadSuccess));
                 }
 
                 _pluginMetadata.Remove(moduleName);
@@ -1132,7 +1151,7 @@ namespace MorningCat.WebUI
 
                 if (!File.Exists(assemblyPath))
                 {
-                    Log.Warning($"[DeletePlugin] 插件文件不存在: {assemblyPath}");
+                    Log.Warning(I18nManager.S("webui.plugin.delete_file_not_exist", assemblyPath));
                     return false;
                 }
 
@@ -1165,12 +1184,12 @@ namespace MorningCat.WebUI
                     }
                 }
 
-                Log.Info($"[DeletePlugin] 插件 {moduleName} 已删除: {assemblyPath}");
+                Log.Info(I18nManager.S("webui.plugin.delete_success", moduleName, assemblyPath));
                 return true;
             }
             catch (Exception ex)
             {
-                Log.Error($"[DeletePlugin] 删除插件失败: {ex.Message}\n{ex.StackTrace}");
+                Log.Error(I18nManager.S("webui.plugin.delete_failed", ex.Message));
                 return false;
             }
         }
@@ -1294,7 +1313,7 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"[WebUI] 发送私聊消息失败: userId={userId}, error={ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.send_private_failed", userId, ex.Message));
                 return false;
             }
         }
@@ -1314,7 +1333,7 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"[WebUI] 发送群消息失败: groupId={groupId}, error={ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.send_group_failed", groupId, ex.Message));
                 return false;
             }
         }
@@ -1339,7 +1358,7 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"[WebUI] 获取群列表失败: {ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.get_groups_failed", ex.Message));
             }
             return new List<GroupInfo>();
         }
@@ -1365,9 +1384,27 @@ namespace MorningCat.WebUI
             }
             catch (Exception ex)
             {
-                Log.Error($"[WebUI] 获取好友列表失败: {ex.Message}");
+                Log.Error(I18nManager.S("webui.plugin.get_friends_failed", ex.Message));
             }
             return new List<FriendInfo>();
+        }
+
+        // === II18nProvider ===
+        public string CurrentLang => _i18nManager?.CurrentLang ?? "zh";
+
+        public Dictionary<string, string> GetTranslations()
+        {
+            return _i18nManager?.GetAllTranslations() ?? new Dictionary<string, string>();
+        }
+
+        public Dictionary<string, string>? GetTranslationsForLang(string lang)
+        {
+            return _i18nManager?.GetTranslationsForLang(lang);
+        }
+
+        public List<string> GetAvailableLanguages()
+        {
+            return _i18nManager?.AvailableLanguages ?? new List<string>();
         }
     }
 }

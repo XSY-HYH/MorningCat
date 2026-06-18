@@ -2,7 +2,6 @@ import { Button } from '@heroui/button';
 import { Card, CardBody } from '@heroui/card';
 import { Chip } from '@heroui/chip';
 import { Divider } from '@heroui/divider';
-import { Input } from '@heroui/input';
 import { Listbox, ListboxItem } from '@heroui/listbox';
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/modal';
 import { ScrollShadow } from '@heroui/scroll-shadow';
@@ -13,6 +12,7 @@ import toast from 'react-hot-toast';
 import yaml from 'js-yaml';
 
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 interface PluginInfo {
   moduleName: string;
@@ -32,6 +32,7 @@ interface PluginConfigInfo {
 }
 
 export default function PluginConfigPage () {
+  const { t } = useI18n();
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [selectedPlugin, setSelectedPlugin] = useState<string | null>(null);
   const [configs, setConfigs] = useState<PluginConfigInfo[]>([]);
@@ -75,7 +76,7 @@ export default function PluginConfigPage () {
         }
       }
     } catch (error) {
-      toast.error('加载插件列表失败');
+      toast.error(t('webui.plugin_config.load_plugins_failed'));
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ export default function PluginConfigPage () {
         }
       }
     } catch (error) {
-      toast.error('加载配置列表失败');
+      toast.error(t('webui.plugin_config.load_configs_failed'));
     }
   };
 
@@ -107,7 +108,7 @@ export default function PluginConfigPage () {
         setConfigData(result.data);
       }
     } catch (error) {
-      toast.error('加载配置数据失败');
+      toast.error(t('webui.plugin_config.load_data_failed'));
     } finally {
       setConfigLoading(false);
     }
@@ -132,14 +133,14 @@ export default function PluginConfigPage () {
       });
       const result = await response.json();
       if (result.code === 0) {
-        toast.success('配置保存成功');
+        toast.success(t('webui.plugin_config.save_success'));
         setConfigData(parsed);
         setEditModalOpen(false);
       } else {
-        toast.error(result.message || '保存失败');
+        toast.error(result.message || t('webui.plugin_config.save_failed'));
       }
     } catch (error) {
-      toast.error('YAML 格式错误');
+      toast.error(t('webui.plugin_config.yaml_error'));
     }
   };
 
@@ -182,16 +183,16 @@ export default function PluginConfigPage () {
 
   return (
     <section className='w-full max-w-[1200px] mx-auto py-4 md:py-8 px-2 md:px-6 relative'>
-      <title>插件配置 - MorningCat WebUI</title>
+      <title>{t('webui.plugin_config.title')}</title>
       
       <div className='flex flex-col md:flex-row gap-4'>
         <div className='w-full md:w-64 shrink-0'>
           <Card className='backdrop-blur-sm border border-white/40 dark:border-white/10 shadow-sm rounded-2xl bg-white/60 dark:bg-black/40'>
             <CardBody className='p-2'>
-              <h3 className='text-sm font-semibold px-2 py-1 text-default-500'>插件列表</h3>
+              <h3 className='text-sm font-semibold px-2 py-1 text-default-500'>{t('webui.plugin_config.plugin_list')}</h3>
               <ScrollShadow className='h-[400px]'>
                 <Listbox
-                  aria-label='插件列表'
+                  aria-label={t('webui.plugin_config.plugin_list')}
                   selectionMode='single'
                   selectedKeys={selectedPlugin ? new Set([selectedPlugin]) : new Set()}
                   onSelectionChange={(keys) => {
@@ -223,11 +224,11 @@ export default function PluginConfigPage () {
             <>
               <Card className='backdrop-blur-sm border border-white/40 dark:border-white/10 shadow-sm rounded-2xl bg-white/60 dark:bg-black/40'>
                 <CardBody className='p-2'>
-                  <h3 className='text-sm font-semibold px-2 py-1 text-default-500'>配置文件</h3>
+                  <h3 className='text-sm font-semibold px-2 py-1 text-default-500'>{t('webui.plugin_config.config_files')}</h3>
                   {configs.length > 0 ? (
                     <ScrollShadow className='h-[150px]'>
                       <Listbox
-                        aria-label='配置列表'
+                        aria-label={t('webui.plugin_config.config_files')}
                         selectionMode='single'
                         selectedKeys={selectedConfig ? new Set([selectedConfig]) : new Set()}
                         onSelectionChange={(keys) => {
@@ -250,7 +251,7 @@ export default function PluginConfigPage () {
                     </ScrollShadow>
                   ) : (
                     <div className='p-4 text-center text-default-400'>
-                      该插件暂无配置文件
+                      {t('webui.plugin_config.no_config')}
                     </div>
                   )}
                 </CardBody>
@@ -262,7 +263,7 @@ export default function PluginConfigPage () {
                     <div className='flex items-center justify-between mb-4'>
                       <h3 className='text-lg font-semibold'>{selectedConfig}</h3>
                       <Button color='primary' size='sm' onPress={handleEditConfig}>
-                        编辑配置
+                        {t('webui.plugin_config.edit')}
                       </Button>
                     </div>
                     <Divider className='mb-4' />
@@ -276,7 +277,7 @@ export default function PluginConfigPage () {
                       </pre>
                     ) : (
                       <div className='p-4 text-center text-default-400'>
-                        无法加载配置数据
+                        {t('webui.plugin_config.load_failed')}
                       </div>
                     )}
                   </CardBody>
@@ -289,7 +290,7 @@ export default function PluginConfigPage () {
 
       <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} size='3xl'>
         <ModalContent>
-          <ModalHeader>编辑配置 - {selectedConfig}</ModalHeader>
+          <ModalHeader>{t('webui.plugin_config.edit_title', selectedConfig || '')}</ModalHeader>
           <ModalBody>
             <textarea
               value={editConfig}
@@ -300,10 +301,10 @@ export default function PluginConfigPage () {
           </ModalBody>
           <ModalFooter>
             <Button variant='light' onPress={() => setEditModalOpen(false)}>
-              取消
+              {t('webui.common.cancel')}
             </Button>
             <Button color='primary' onPress={handleSaveConfig}>
-              保存
+              {t('webui.common.save')}
             </Button>
           </ModalFooter>
         </ModalContent>

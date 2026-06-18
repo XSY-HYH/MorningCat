@@ -10,8 +10,10 @@ import remarkBreaks from 'remark-breaks';
 
 import logo from '@/assets/images/logo.png';
 import WebUIManager from '@/controllers/webui_manager';
+import useI18n from '@/hooks/use-i18n';
 
 export default function AboutPage () {
+  const { t } = useI18n();
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +31,10 @@ export default function AboutPage () {
       if (result.code === 0 && result.data?.content) {
         setContent(result.data.content);
       } else {
-        setError(result.message || '加载失败');
+        setError(result.message || t('webui.about.load_failed'));
       }
     } catch (err) {
-      setError('加载关于内容失败');
+      setError(t('webui.about.load_content_failed'));
     } finally {
       setLoading(false);
     }
@@ -40,7 +42,7 @@ export default function AboutPage () {
 
   const loadVersion = async () => {
     try {
-      const data = await WebUIManager.GetNapCatVersion();
+      const data = await WebUIManager.GetOneBotVersion();
       setVersion(data?.version || '');
     } catch {
       // ignore
@@ -51,15 +53,15 @@ export default function AboutPage () {
 
   return (
     <div className='flex flex-col h-full w-full gap-6 p-2 md:p-6'>
-      <title>关于 - MorningCat WebUI</title>
+      <title>{t('webui.about.title')}</title>
 
       <div className='flex flex-col gap-2'>
         <h1 className='text-2xl font-bold flex items-center gap-3 text-default-900'>
           <Image src={logo} alt='MorningCat Logo' width={32} height={32} />
-          关于 MorningCat
+          {t('webui.about.heading')}
         </h1>
         <div className='flex items-center gap-4 text-small text-default-500'>
-          <p>一个QQ机器人框架QWQ</p>
+          <p>{t('webui.about.description')}</p>
           <Divider orientation='vertical' className='h-4' />
           <div className='flex items-center gap-2'>
             {version && <Chip size='sm' color='primary' variant='flat'>v{version}</Chip>}
@@ -103,7 +105,7 @@ export default function AboutPage () {
         <div>
           <Card shadow='sm' className={cardStyle}>
             <CardBody className='py-4'>
-              <h2 className='text-lg font-bold mb-3'>技术栈</h2>
+              <h2 className='text-lg font-bold mb-3'>{t('webui.about.tech_stack')}</h2>
               <div className='flex flex-wrap gap-2'>
                 {['.NET 10', 'ASP.NET Core', 'React 19', 'TypeScript', 'HeroUI', 'Vite'].map((tech) => (
                   <Chip key={tech} size='sm' variant='flat' className='bg-default-100/50 text-default-600'>

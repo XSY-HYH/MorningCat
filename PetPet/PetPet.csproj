@@ -19,9 +19,6 @@
     <Reference Include="Logging">
       <HintPath>..\Lib\logs.dll</HintPath>
     </Reference>
-    <Reference Include="ModuleManagerLib">
-      <HintPath>..\Lib\ModuleManagerLib.dll</HintPath>
-    </Reference>
     <Reference Include="MorningCat">
       <HintPath>..\Lib\MorningCat.dll</HintPath>
     </Reference>

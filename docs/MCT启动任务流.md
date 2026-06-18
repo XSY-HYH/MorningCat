@@ -370,7 +370,7 @@ StartAsync()
 │   │
 │   └─ await LoadExternalModulesAndReportStatusAsync() — 见阶段三-A-2
 │
-├─ await ConnectToNapCatAsync() — 见阶段三-A-3
+├─ await ConnectToOneBotAsync() — 见阶段三-A-3
 │
 └─ _isRunning = true
 ```
@@ -486,10 +486,10 @@ LoadExternalModulesAndReportStatusAsync()
     └─ 否则 → 按模块分组显示所有命令
 ```
 
-### 阶段三-A-3：ConnectToNapCatAsync()
+### 阶段三-A-3：ConnectToOneBotAsync()
 
 ```
-ConnectToNapCatAsync()
+ConnectToOneBotAsync()
 │
 ├─ _isAuthenticated = false
 ├─ _authCompletionSource = new TaskCompletionSource<bool>

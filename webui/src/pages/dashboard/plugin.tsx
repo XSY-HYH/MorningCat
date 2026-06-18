@@ -10,6 +10,7 @@ import { IoMdRefresh } from 'react-icons/io';
 import PageLoading from '@/components/page_loading';
 import PluginManager, { PluginItem, PluginDetail } from '@/controllers/plugin_manager';
 import useDialog from '@/hooks/use-dialog';
+import useI18n from '@/hooks/use-i18n';
 
 function getStatusColor (status: string): 'success' | 'danger' | 'warning' | 'default' {
   switch (status) {
@@ -26,27 +27,6 @@ function getStatusColor (status: string): 'success' | 'danger' | 'warning' | 'de
   }
 }
 
-function getStatusText (status: string): string {
-  switch (status) {
-    case 'Running':
-      return '运行中';
-    case 'Error':
-      return '加载失败';
-    case 'Disabled':
-      return '已禁用';
-    case 'Unloaded':
-      return '已卸载';
-    case 'Initializing':
-      return '初始化中';
-    case 'Scanned':
-      return '待初始化';
-    case 'SignatureFailed':
-      return '签名检查失败';
-    default:
-      return status;
-  }
-}
-
 function getPluginIcon (plugin: PluginItem | PluginDetail): string {
   if (plugin.iconBase64) {
     return `data:image/png;base64,${plugin.iconBase64}`;
@@ -55,12 +35,34 @@ function getPluginIcon (plugin: PluginItem | PluginDetail): string {
 }
 
 export default function PluginPage () {
+  const { t } = useI18n();
   const [plugins, setPlugins] = useState<PluginItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pluginManagerNotFound, setPluginManagerNotFound] = useState(false);
   const [selectedPlugin, setSelectedPlugin] = useState<PluginDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const dialog = useDialog();
+
+  const getStatusText = (status: string): string => {
+    switch (status) {
+      case 'Running':
+        return t('webui.plugin.status.running');
+      case 'Error':
+        return t('webui.plugin.status.load_failed');
+      case 'Disabled':
+        return t('webui.plugin.status.disabled');
+      case 'Unloaded':
+        return t('webui.plugin.status.unloaded');
+      case 'Initializing':
+        return t('webui.plugin.status.initializing');
+      case 'Scanned':
+        return t('webui.plugin.status.pending');
+      case 'SignatureFailed':
+        return t('webui.plugin.status.signature_failed');
+      default:
+        return status;
+    }
+  };
 
   const loadPlugins = async () => {
     setLoading(true);
@@ -92,7 +94,7 @@ export default function PluginPage () {
       if (detail) {
         setSelectedPlugin(detail);
       } else {
-        toast.error('获取插件详情失败');
+        toast.error(t('webui.plugin.load_detail_failed'));
       }
     } catch (e: any) {
       toast.error(e.message);
@@ -103,32 +105,33 @@ export default function PluginPage () {
 
   const handleToggle = async (plugin: PluginItem) => {
     if (plugin.isBuiltin) {
-      toast.error('无法禁用内置模块');
+      toast.error(t('webui.plugin.cannot_disable_builtin'));
       return;
     }
 
     const isDisabled = plugin.status === 'Disabled';
-    const actionText = isDisabled ? '启用' : '禁用';
-    
+    const actionText = isDisabled ? t('webui.plugin.enable') : t('webui.plugin.disable');
+    const titleKey = isDisabled ? 'webui.plugin.confirm_enable' : 'webui.plugin.confirm_disable';
+    const msgKey = isDisabled ? 'webui.plugin.confirm_enable_msg' : 'webui.plugin.confirm_disable_msg';
+
     dialog.confirm({
-      title: `${actionText}插件`,
+      title: t(titleKey),
       content: (
         <p className='text-base text-default-800'>
-          确定要{actionText}插件「<span className='font-semibold text-primary'>{plugin.displayName || plugin.moduleName}</span>」吗？
-          {isDisabled ? '' : '（重启后生效）'}
+          {t(msgKey, plugin.displayName || plugin.moduleName)}
         </p>
       ),
-      confirmText: '确定',
-      cancelText: '取消',
+      confirmText: t('webui.plugin.confirm_btn'),
+      cancelText: t('webui.plugin.cancel_btn'),
       onConfirm: async () => {
-        const loadingToast = toast.loading(`${actionText}中...`);
+        const loadingToast = toast.loading(t('webui.plugin.disabling'));
         try {
           if (isDisabled) {
             await PluginManager.enablePlugin(plugin.moduleName);
           } else {
             await PluginManager.disablePlugin(plugin.moduleName);
           }
-          toast.success(`${actionText}成功`, { id: loadingToast });
+          toast.success(t('webui.plugin.success', actionText), { id: loadingToast });
           loadPlugins();
         } catch (e: any) {
           toast.error(e.message, { id: loadingToast });
@@ -139,28 +142,28 @@ export default function PluginPage () {
 
   const handleUnload = async (plugin: PluginItem) => {
     if (plugin.isBuiltin) {
-      toast.error('无法卸载内置模块');
+      toast.error(t('webui.plugin.cannot_uninstall_builtin'));
       return;
     }
 
     dialog.confirm({
-      title: '卸载插件',
+      title: t('webui.plugin.confirm_uninstall'),
       content: (
         <p className='text-base text-default-800'>
-          确定要卸载插件「<span className='font-semibold text-danger'>{plugin.displayName || plugin.moduleName}</span>」吗？此操作不可恢复。
+          {t('webui.plugin.confirm_uninstall_msg', plugin.displayName || plugin.moduleName)}
         </p>
       ),
-      confirmText: '确定卸载',
-      cancelText: '取消',
+      confirmText: t('webui.plugin.confirm_uninstall_btn'),
+      cancelText: t('webui.plugin.cancel_btn'),
       onConfirm: async () => {
-        const loadingToast = toast.loading('卸载中...');
+        const loadingToast = toast.loading(t('webui.plugin.uninstalling'));
         try {
           const success = await PluginManager.unloadPlugin(plugin.moduleName);
           if (success) {
-            toast.success('卸载成功', { id: loadingToast });
+            toast.success(t('webui.plugin.uninstall_success'), { id: loadingToast });
             loadPlugins();
           } else {
-            toast.error('卸载失败，可能有其他插件依赖此模块', { id: loadingToast });
+            toast.error(t('webui.plugin.uninstall_failed'), { id: loadingToast });
           }
         } catch (e: any) {
           toast.error(e.message, { id: loadingToast });
@@ -171,33 +174,30 @@ export default function PluginPage () {
 
   const handleDelete = async (plugin: PluginItem) => {
     if (plugin.isBuiltin) {
-      toast.error('无法删除内置模块');
+      toast.error(t('webui.plugin.cannot_delete_builtin'));
       return;
     }
 
     dialog.confirm({
-      title: '删除插件',
+      title: t('webui.plugin.confirm_delete'),
       content: (
         <div className='text-base text-default-800'>
           <p>
-            确定要删除插件「<span className='font-semibold text-danger'>{plugin.displayName || plugin.moduleName}</span>」吗？
-          </p>
-          <p className='text-warning mt-2 text-sm'>
-            此操作将卸载插件并删除插件文件，不可恢复！
+            {t('webui.plugin.confirm_delete_msg', plugin.displayName || plugin.moduleName)}
           </p>
         </div>
       ),
-      confirmText: '确定删除',
-      cancelText: '取消',
+      confirmText: t('webui.plugin.confirm_delete_btn'),
+      cancelText: t('webui.plugin.cancel_btn'),
       onConfirm: async () => {
-        const loadingToast = toast.loading('删除中...');
+        const loadingToast = toast.loading(t('webui.plugin.deleting'));
         try {
           const success = await PluginManager.deletePlugin(plugin.moduleName);
           if (success) {
-            toast.success('删除成功', { id: loadingToast });
+            toast.success(t('webui.plugin.delete_success'), { id: loadingToast });
             loadPlugins();
           } else {
-            toast.error('删除失败，可能有其他插件依赖此模块', { id: loadingToast });
+            toast.error(t('webui.plugin.delete_failed'), { id: loadingToast });
           }
         } catch (e: any) {
           toast.error(e.message, { id: loadingToast });
@@ -212,12 +212,12 @@ export default function PluginPage () {
 
   return (
     <>
-      <title>插件管理 - MorningCat WebUI</title>
+      <title>{t('webui.plugin.title')}</title>
       <div className='p-2 md:p-4 relative'>
         <PageLoading loading={loading} />
 
         <div className='flex mb-6 items-center gap-4'>
-          <h1 className='text-2xl font-bold'>插件管理</h1>
+          <h1 className='text-2xl font-bold'>{t('webui.plugin.heading')}</h1>
           <Button
             isIconOnly
             className='bg-default-100/50 hover:bg-default-200/50 text-default-700 backdrop-blur-md'
@@ -233,16 +233,16 @@ export default function PluginPage () {
             <div className='flex flex-col items-center justify-center min-h-[400px] text-center'>
               <div className='text-6xl mb-4'>📦</div>
               <h2 className='text-xl font-semibold text-default-700 dark:text-white/90 mb-2'>
-                无插件加载
+                {t('webui.plugin.no_plugin_loaded')}
               </h2>
               <p className='text-default-500 dark:text-white/60 max-w-md'>
-                插件管理器未加载，请检查 Modules 目录是否存在
+                {t('webui.plugin.no_loader')}
               </p>
             </div>
           )
           : plugins.length === 0
             ? (
-              <div className='text-default-400'>暂时没有安装插件</div>
+              <div className='text-default-400'>{t('webui.plugin.no_plugins')}</div>
             )
             : (
               <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 justify-start items-stretch gap-4'>
@@ -262,21 +262,21 @@ export default function PluginPage () {
                           </h3>
                         </div>
                         {plugin.isBuiltin && (
-                          <Chip size='sm' color='primary' variant='flat'>内置</Chip>
+                          <Chip size='sm' color='primary' variant='flat'>{t('webui.plugin.builtin')}</Chip>
                         )}
                       </div>
                       <Chip size='sm' color={getStatusColor(plugin.status)} variant='flat'>
-                        {plugin.signatureStatus === 'Failed' ? '签名检查失败' : getStatusText(plugin.status)}
+                        {plugin.signatureStatus === 'Failed' ? t('webui.plugin.status.signature_failed') : getStatusText(plugin.status)}
                       </Chip>
                     </CardHeader>
                     <Divider />
                     <CardBody className='px-4 py-3'>
                       <p className='text-sm text-default-500 line-clamp-2 min-h-[40px]'>
-                        {plugin.description || '暂无描述'}
+                        {plugin.description || t('webui.plugin.no_description')}
                       </p>
                       {plugin.author && (
                         <p className='text-xs text-default-400 mt-2'>
-                          作者: {plugin.author}
+                          {t('webui.plugin.author', plugin.author)}
                         </p>
                       )}
                       <div className='flex flex-wrap gap-2 mt-3'>
@@ -287,7 +287,7 @@ export default function PluginPage () {
                           onPress={() => handleViewDetail(plugin)}
                           isLoading={detailLoading}
                         >
-                          详情
+                          {t('webui.plugin.detail')}
                         </Button>
                         {!plugin.isBuiltin && (
                           <>
@@ -297,7 +297,7 @@ export default function PluginPage () {
                               color={plugin.status === 'Disabled' ? 'success' : 'warning'}
                               onPress={() => handleToggle(plugin)}
                             >
-                              {plugin.status === 'Disabled' ? '启用' : '禁用'}
+                              {plugin.status === 'Disabled' ? t('webui.plugin.enable') : t('webui.plugin.disable')}
                             </Button>
                             <Button
                               size='sm'
@@ -305,7 +305,7 @@ export default function PluginPage () {
                               color='danger'
                               onPress={() => handleUnload(plugin)}
                             >
-                              卸载
+                              {t('webui.plugin.uninstall')}
                             </Button>
                             <Button
                               size='sm'
@@ -313,7 +313,7 @@ export default function PluginPage () {
                               color='danger'
                               onPress={() => handleDelete(plugin)}
                             >
-                              删除
+                              {t('webui.plugin.delete')}
                             </Button>
                           </>
                         )}
@@ -356,28 +356,28 @@ export default function PluginPage () {
                 </div>
                 <div className='flex gap-2'>
                   <Chip size='sm' color={getStatusColor(selectedPlugin.status)} variant='flat'>
-                    {selectedPlugin.signatureStatus === 'Failed' ? '签名检查失败' : getStatusText(selectedPlugin.status)}
+                    {selectedPlugin.signatureStatus === 'Failed' ? t('webui.plugin.status.signature_failed') : getStatusText(selectedPlugin.status)}
                   </Chip>
                   {selectedPlugin.isBuiltin && (
-                    <Chip size='sm' color='primary' variant='flat'>内置</Chip>
+                    <Chip size='sm' color='primary' variant='flat'>{t('webui.plugin.builtin')}</Chip>
                   )}
                 </div>
               </CardHeader>
               <Divider />
               <CardBody className='px-4 py-3 flex flex-col gap-3'>
                 <div>
-                  <p className='text-xs text-default-400'>模块名称</p>
+                  <p className='text-xs text-default-400'>{t('webui.plugin.module_name')}</p>
                   <p className='text-sm'>{selectedPlugin.moduleName}</p>
                 </div>
                 {selectedPlugin.author && (
                   <div>
-                    <p className='text-xs text-default-400'>作者</p>
+                    <p className='text-xs text-default-400'>{t('webui.plugin.author_label')}</p>
                     <p className='text-sm'>{selectedPlugin.author}</p>
                   </div>
                 )}
                 {selectedPlugin.website && (
                   <div>
-                    <p className='text-xs text-default-400'>网站</p>
+                    <p className='text-xs text-default-400'>{t('webui.plugin.website')}</p>
                     <a
                       href={selectedPlugin.website}
                       target='_blank'
@@ -390,25 +390,25 @@ export default function PluginPage () {
                 )}
                 {selectedPlugin.description && (
                   <div>
-                    <p className='text-xs text-default-400'>描述</p>
+                    <p className='text-xs text-default-400'>{t('webui.plugin.description')}</p>
                     <p className='text-sm'>{selectedPlugin.description}</p>
                   </div>
                 )}
                 {selectedPlugin.moduleType && (
                   <div>
-                    <p className='text-xs text-default-400'>类型</p>
+                    <p className='text-xs text-default-400'>{t('webui.plugin.type')}</p>
                     <p className='text-sm font-mono text-xs break-all'>{selectedPlugin.moduleType}</p>
                   </div>
                 )}
                 {selectedPlugin.assemblyPath && (
                   <div>
-                    <p className='text-xs text-default-400'>程序集路径</p>
+                    <p className='text-xs text-default-400'>{t('webui.plugin.assembly_path')}</p>
                     <p className='text-sm font-mono text-xs break-all'>{selectedPlugin.assemblyPath}</p>
                   </div>
                 )}
                 {selectedPlugin.dependencies && selectedPlugin.dependencies.length > 0 && (
                   <div>
-                    <p className='text-xs text-default-400'>依赖</p>
+                    <p className='text-xs text-default-400'>{t('webui.plugin.dependencies')}</p>
                     <div className='flex flex-wrap gap-1 mt-1'>
                       {selectedPlugin.dependencies.map(dep => (
                         <Chip key={dep} size='sm' variant='flat'>{dep}</Chip>
@@ -418,7 +418,7 @@ export default function PluginPage () {
                 )}
                 {selectedPlugin.dependents && selectedPlugin.dependents.length > 0 && (
                   <div>
-                    <p className='text-xs text-default-400'>被依赖</p>
+                    <p className='text-xs text-default-400'>{t('webui.plugin.dependents')}</p>
                     <div className='flex flex-wrap gap-1 mt-1'>
                       {selectedPlugin.dependents.map(dep => (
                         <Chip key={dep} size='sm' variant='flat' color='warning'>{dep}</Chip>

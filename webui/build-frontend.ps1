@@ -15,8 +15,8 @@ if (Test-Path $cacheDir) {
 }
 New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
 
-Write-Host "[2/5] Copying frontend to cache..." -ForegroundColor Yellow
-Get-ChildItem -Path $frontendDir | ForEach-Object {
+Write-Host "[2/5] Copying frontend to cache (excluding node_modules)..." -ForegroundColor Yellow
+Get-ChildItem -Path $frontendDir | Where-Object { $_.Name -ne "node_modules" } | ForEach-Object {
     Copy-Item -Path $_.FullName -Destination $cacheDir -Recurse -Force
 }
 

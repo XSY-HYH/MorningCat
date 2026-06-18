@@ -2,15 +2,16 @@ import { Button } from '@heroui/button';
 import toast from 'react-hot-toast';
 import { LuDownload, LuUpload } from 'react-icons/lu';
 import { requestServerWithFetch } from '@/utils/request';
+import useI18n from '@/hooks/use-i18n';
 
 // 导入配置
-const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>) => {
+const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>, t: (key: string, ...args: any[]) => string) => {
   const file = event.target.files?.[0];
   if (!file) return;
 
   // 检查文件类型
   if (!file.name.endsWith('.zip')) {
-    toast.error('请选择zip格式的配置文件');
+    toast.error(t('webui.backup.zip_required'));
     return;
   }
 
@@ -25,19 +26,19 @@ const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>) =>
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || '导入配置失败');
+      throw new Error(errorData.message || t('webui.backup.import_failed'));
     }
 
     const result = await response.json();
     // 检查是否成功导入
     if (result.code === 0) {
-      toast.success(result.data?.message || '配置导入成功。');
+      toast.success(result.data?.message || t('webui.backup.import_success'));
     } else {
-      toast.error(`配置导入失败: ${result.data?.message || '未知错误'}`);
+      toast.error(t('webui.backup.import_failed', result.data?.message || ''));
     }
   } catch (error) {
     const msg = (error as Error).message;
-    toast.error(`导入配置失败: ${msg}`);
+    toast.error(t('webui.backup.import_failed', msg));
   } finally {
     // 重置文件输入
     event.target.value = '';
@@ -45,14 +46,14 @@ const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>) =>
 };
 
 // 导出配置
-const handleExportConfig = async () => {
+const handleExportConfig = async (t: (key: string, ...args: any[]) => string) => {
   try {
     const response = await requestServerWithFetch('/OB11Config/ExportConfig', {
       method: 'GET',
     });
 
     if (!response.ok) {
-      throw new Error('导出配置失败');
+      throw new Error(t('webui.backup.export_failed'));
     }
 
     // 创建下载链接
@@ -67,21 +68,22 @@ const handleExportConfig = async () => {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 
-    toast.success('配置导出成功');
+    toast.success(t('webui.backup.export_success'));
   } catch (error) {
     const msg = (error as Error).message;
-
-    toast.error(`导出配置失败: ${msg}`);
+    toast.error(t('webui.backup.export_failed', msg));
   }
 };
 
 const BackupConfigCard: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <div className='space-y-6'>
       <div>
-        <h3 className='text-lg font-medium mb-4'>备份与恢复</h3>
+        <h3 className='text-lg font-medium mb-4'>{t('webui.backup.heading')}</h3>
         <p className='text-sm text-default-500 mb-4'>
-          您可以通过导入/导出配置文件来备份和恢复NapCat的所有设置
+          {t('webui.backup.description')}
         </p>
 
         <div className='flex flex-wrap gap-3'>
@@ -89,8 +91,8 @@ const BackupConfigCard: React.FC = () => {
             isIconOnly
             className='bg-primary hover:bg-primary/90 text-white'
             radius='full'
-            onPress={handleExportConfig}
-            title='导出配置'
+            onPress={() => handleExportConfig(t)}
+            title={t('webui.backup.export')}
           >
             <LuDownload size={20} />
           </Button>
@@ -98,7 +100,7 @@ const BackupConfigCard: React.FC = () => {
             <input
               type='file'
               accept='.zip'
-              onChange={handleImportConfig}
+              onChange={(e) => handleImportConfig(e, t)}
               className='hidden'
             />
             <Button
@@ -106,7 +108,7 @@ const BackupConfigCard: React.FC = () => {
               className='bg-primary hover:bg-primary/90 text-white'
               radius='full'
               as='span'
-              title='导入配置'
+              title={t('webui.backup.import')}
             >
               <LuUpload size={20} />
             </Button>
@@ -116,7 +118,7 @@ const BackupConfigCard: React.FC = () => {
         <div className='mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg'>
           <div className='flex items-start gap-2'>
             <p className='text-sm text-warning'>
-              导入配置会覆盖当前所有设置，请谨慎操作。导入前建议先导出当前配置作为备份。
+              {t('webui.backup.warning')}
             </p>
           </div>
         </div>

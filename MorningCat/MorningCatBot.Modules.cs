@@ -11,6 +11,7 @@ using MorningCat.Config;
 using MorningCat.Commands;
 using MorningCat.Modules;
 using MorningCat.PluginAPI;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -26,6 +27,7 @@ namespace MorningCat
         private SystemModule _systemModule;
         private SetModule _setModule;
         private MessageRelayModule _messageRelayModule;
+        private LangModule _langModule;
         
         public string GetModuleNameByAssemblyName(string assemblyName)
         {
@@ -37,7 +39,7 @@ namespace MorningCat
             try
             {
                 Log.Name("Modules");
-                Log.Info("猫猫正在殴打模块管理器...");
+                Log.Info(_i18n.T("module.initializing"));
                 
                 var config = _configManager.GetConfig();
                 
@@ -46,7 +48,7 @@ namespace MorningCat
                 if (!Directory.Exists(modulesDirectory))
                 {
                     Directory.CreateDirectory(modulesDirectory);
-                    Log.Debug($"猫猫创建了模块目录: {modulesDirectory}");
+                    Log.Debug(_i18n.T("module.directory_created", modulesDirectory));
                 }
                 
                 _metadataCachePath = Path.Combine(modulesDirectory, ".plugin_metadata.json");
@@ -57,18 +59,16 @@ namespace MorningCat
                 
                 _moduleManager.Init(modulesDirectory);
                 
-                VerifyPluginSignatures(modulesDirectory);
-                
                 await LoadBuiltinModulesAsync();
                 
                 await LoadExternalModulesAndReportStatusAsync();
                 
-                Log.Info("猫猫已制服模块管理器喵");
-                Log.Debug($"模块目录路径: {modulesDirectory}");
+                Log.Info(_i18n.T("bot.started"));
+                Log.Debug(_i18n.T("module.directory_path", modulesDirectory));
             }
             catch (Exception ex)
             {
-                Log.Error($"猫猫被模块管理器反制了QAQ: {ex.Message}");
+                Log.Error(_i18n.T("module.init_failed", ex.Message));
                 throw;
             }
         }
@@ -90,7 +90,7 @@ namespace MorningCat
                             {
                                 File.Delete(marker);
                                 File.Move(dllPath, marker);
-                                Log.Debug($"已禁用插件: {Path.GetFileName(dllPath)}");
+                        Log.Debug(_i18n.T("module.plugin_disabled", Path.GetFileName(dllPath)));
                             }
                             catch
                             {
@@ -108,58 +108,13 @@ namespace MorningCat
             }
         }
         
-        private void VerifyPluginSignatures(string modulesDirectory)
-        {
-            try
-            {
-                if (!Directory.Exists(modulesDirectory))
-                    return;
-                
-                var dllFiles = Directory.GetFiles(modulesDirectory, "*.dll");
-                var libraryDir = Path.Combine(modulesDirectory, "Library");
-                
-                foreach (var dllPath in dllFiles)
-                {
-                    if (!string.IsNullOrEmpty(libraryDir) && dllPath.StartsWith(libraryDir, StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    
-                    if (dllPath.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    
-                    var fileName = Path.GetFileName(dllPath);
-                    
-                    if (!_signatureVerifier.VerifyDll(dllPath))
-                    {
-                        Log.Warning($"插件 {fileName} 签名验证失败，已禁用");
-                        _signatureFailedModules.Add(fileName);
-                        try
-                        {
-                            var disabledPath = dllPath + ".disabled";
-                            if (File.Exists(disabledPath))
-                                File.Delete(disabledPath);
-                            File.Move(dllPath, disabledPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Error($"禁用未签名插件失败: {ex.Message}");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"插件签名验证过程出错了喵: {ex.Message}");
-            }
-        }
-        
         private async Task LoadBuiltinModulesAsync()
         {
-            Log.Info("猫猫正在加载内置模块...");
+            Log.Info(_i18n.T("module.builtin_loading"));
             
             _moduleManager.RegisterService<MessageDistributionCore>(_mdc);
             _moduleManager.RegisterService<CommandRegistry>(_commandRegistry);
             _moduleManager.RegisterService<ModuleManager>(_moduleManager);
-            _moduleManager.RegisterService<PluginApiService>(_moduleManager.PluginApi);
             _moduleManager.RegisterService<ConfigManager>(_configManager);
             _moduleManager.RegisterService<PluginConfigManager>(_pluginConfigManager);
             _moduleManager.RegisterService<PluginCommandAPI>(_pluginCommandAPI);
@@ -170,7 +125,6 @@ namespace MorningCat
             _moduleManager.RegisterService("MDC", _mdc);
             _moduleManager.RegisterService("CommandRegistry", _commandRegistry);
             _moduleManager.RegisterService("ModuleManager", _moduleManager);
-            _moduleManager.RegisterService("PluginApiService", _moduleManager.PluginApi);
             _moduleManager.RegisterService("PluginCommandAPI", _pluginCommandAPI);
             _moduleManager.RegisterService("PluginDatabaseAPI", _pluginDatabaseAPI);
             _moduleManager.RegisterService("MorningCatBot", this);
@@ -194,8 +148,12 @@ namespace MorningCat
             _messageRelayModule = new MessageRelayModule();
             _messageRelayModule.SetMDC(_mdc);
             await _messageRelayModule.Init();
+
+            _langModule = new LangModule();
+            _langModule.SetServices(_mdc, _commandRegistry, _configManager);
+            await _langModule.Init();
             
-            Log.Debug("内置模块加载完成");
+            Log.Debug(_i18n.T("module.builtin_loaded"));
         }
         
         private void UpdateBuiltinModulesMDC()
@@ -205,6 +163,7 @@ namespace MorningCat
             _systemModule?.UpdateMDC(_mdc);
             _setModule?.UpdateMDC(_mdc);
             _messageRelayModule?.UpdateMDC(_mdc);
+            _langModule?.UpdateMDC(_mdc);
             
             try
             {
@@ -217,16 +176,16 @@ namespace MorningCat
                     if (mdcProp != null && mdcProp.PropertyType == typeof(MessageDistributionCore) && mdcProp.CanWrite)
                     {
                         mdcProp.SetValue(moduleInfo.ModuleInstance, _mdc);
-                        Log.Debug($"已更新插件 {moduleInfo.ModuleName} 的MDC引用");
+                        Log.Debug(_i18n.T("module.mdc_updated", moduleInfo.ModuleName));
                     }
                 }
             }
             catch (System.Exception ex)
             {
-                Log.Warning($"更新插件MDC引用时出错: {ex.Message}");
+                Log.Warning(_i18n.T("module.mdc_update_error", ex.Message));
             }
             
-            Log.Debug("已更新所有模块的MDC引用");
+            Log.Debug(_i18n.T("module.mdc_all_updated"));
         }
         
         private bool _moduleEventsSubscribed = false;
@@ -235,6 +194,21 @@ namespace MorningCat
         {
             if (_moduleEventsSubscribed) return;
             _moduleEventsSubscribed = true;
+            
+            _moduleManager.OnBeforeModuleLoad += (context) =>
+            {
+                if (!string.IsNullOrEmpty(context.AssemblyPath))
+                {
+                    if (!_signatureVerifier.VerifyDllByAssemblyPath(context.AssemblyPath))
+                    {
+                        var fileName = Path.GetFileName(context.AssemblyPath);
+                        Log.Warning(_i18n.T("module.signature_failed", fileName));
+                        _signatureFailedModules.Add(fileName);
+                        return Task.FromResult(ModuleLoadAction.Skip);
+                    }
+                }
+                return Task.FromResult(ModuleLoadAction.Continue);
+            };
             
             _moduleManager.OnProgressUpdated += (progress) =>
             {
@@ -252,7 +226,7 @@ namespace MorningCat
             
             _moduleManager.ModuleLoaded += (info) =>
             {
-                Log.Debug($"{info.ModuleName}模块已加载");
+                Log.Debug(_i18n.T("module.loaded", info.ModuleName));
 
                 if (!string.IsNullOrEmpty(info.AssemblyPath))
                 {
@@ -280,14 +254,14 @@ namespace MorningCat
             
             _moduleManager.ModuleUnloaded += (info) =>
             {
-                Log.Debug($"{info.ModuleName}模块已卸载");
+                Log.Debug(_i18n.T("module.unloaded", info.ModuleName));
 
                 _pluginMetadata.Remove(info.ModuleName);
             };
             
             _moduleManager.ModuleFailed += (info, ex) =>
             {
-                Log.Warning($"{info.ModuleName} - {ex.Message}模块失败");
+                Log.Warning(_i18n.T("module.load_failed", info.ModuleName, ex.Message));
             };
         }
         
@@ -295,7 +269,7 @@ namespace MorningCat
         {
             try
             {
-                Log.Info("猫猫正在检查外部模块...");
+                Log.Info(_i18n.T("module.external_checking"));
                 
                 SubscribeModuleManagerEvents();
                 
@@ -346,7 +320,7 @@ namespace MorningCat
                     };
                 });
                 
-                Log.Debug("开始加载外部模块...");
+                Log.Debug(_i18n.T("module.external_loading"));
                 
                 var loadResult = await _moduleManager.LoadAllModulesAsync();
                 
@@ -355,20 +329,20 @@ namespace MorningCat
                 
                 var failedModules = allModules.Except(loadedModules).ToList();
                 
-                string statusReport = "已识别";
+                string statusReport = I18nManager.S("module.status_recognized");
                 
                 if (loadedModules.Count > 0)
                 {
-                    statusReport += string.Join("，", loadedModules);
+                    statusReport += string.Join(I18nManager.S("module.separator"), loadedModules);
                 }
                 else
                 {
-                    statusReport += "棍母";
+                    statusReport += I18nManager.S("module.status_no_modules");
                 }
                 
                 if (failedModules.Count > 0)
                 {
-                    statusReport += $"加载失败:{string.Join("，", failedModules)}";
+                    statusReport += I18nManager.S("module.status_load_failed", string.Join(I18nManager.S("module.separator"), failedModules));
                 }
                 
                 Log.Info(statusReport);
@@ -379,12 +353,12 @@ namespace MorningCat
                     {
                         if (error.Contains("InitException:") || error.Contains("InitFailed:"))
                         {
-                            Log.Warning($"插件加载错误QAQ: {error}");
-                            Log.Debug($"插件加载错误: {error}");
+                            Log.Warning(_i18n.T("module.plugin_load_error", error));
+                            Log.Debug(_i18n.T("module.plugin_load_error_detail", error));
                         }
                         else
                         {
-                            Log.Warning($"模块加载错误QAQ: {error}");
+                            Log.Warning(_i18n.T("module.module_load_error", error));
                         }
                     }
                 }
@@ -404,7 +378,7 @@ namespace MorningCat
             }
             catch (Exception ex)
             {
-                Log.Debug($"检查外部模块状态失败: {ex.Message}");
+                Log.Debug(_i18n.T("module.external_check_failed", ex.Message));
             }
         }
         
@@ -416,11 +390,11 @@ namespace MorningCat
                 
                 if (commands.Count == 0)
                 {
-                    Log.Debug("当前没有注册任何命令");
+                    Log.Debug(_i18n.T("command.no_commands"));
                     return;
                 }
                 
-                Log.Info($"已注册 {commands.Count} 个命令");
+                Log.Info(_i18n.T("command.registered_count", commands.Count));
                 
                 var groupedCommands = commands.GroupBy(c => c.ModuleName);
                 
@@ -430,7 +404,7 @@ namespace MorningCat
                     foreach (var cmd in group)
                     {
                         var paramInfo = cmd.Parameters.Count > 0 
-                            ? $" ({cmd.Parameters.Count}个参数)" 
+                            ? I18nManager.S("command.param_count", cmd.Parameters.Count)
                             : "";
                         var prefix = cmd.RequireSlash ? "/" : "";
                         Log.Debug($"    {prefix}{cmd.Name} - {cmd.Description}{paramInfo}");
@@ -439,7 +413,7 @@ namespace MorningCat
             }
             catch (Exception ex)
             {
-                Log.Error($"显示命令列表失败喵:{ex.Message}");
+                Log.Error(_i18n.T("command.list_failed", ex.Message));
             }
         }
         
@@ -484,7 +458,7 @@ namespace MorningCat
             }
             catch (Exception ex)
             {
-                Log.Error($"加载元数据缓存失败: {ex.Message}");
+                Log.Error(_i18n.T("module.metadata_load_failed", ex.Message));
             }
         }
         
@@ -509,7 +483,7 @@ namespace MorningCat
             }
             catch (Exception ex)
             {
-                Log.Error($"保存元数据缓存失败喵:{ex.Message}");
+                Log.Error(_i18n.T("module.metadata_save_failed", ex.Message));
             }
         }
     }

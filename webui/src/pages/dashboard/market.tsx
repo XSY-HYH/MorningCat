@@ -12,6 +12,7 @@ import { IoMdRefresh, IoMdSearch, IoMdDownload, IoMdInformationCircle, IoMdCloud
 import clsx from 'clsx';
 import key from '@/const/key';
 import TailwindMarkdown from '@/components/tailwind_markdown';
+import useI18n from '@/hooks/use-i18n';
 
 interface MarketPluginItem {
   id: string;
@@ -83,6 +84,7 @@ function getFullIconUrl (iconUrl?: string): string {
 }
 
 export default function MarketPage () {
+  const { t } = useI18n();
   const [plugins, setPlugins] = useState<MarketPluginItem[]>([]);
   const [installedPlugins, setInstalledPlugins] = useState<InstalledPlugin[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,7 +112,7 @@ export default function MarketPage () {
         setInstalledPlugins(result.data);
       }
     } catch (e) {
-      console.error('加载已安装插件列表失败', e);
+      console.error(t('webui.market.load_installed_failed'), e);
     }
   }, []);
 
@@ -119,7 +121,7 @@ export default function MarketPage () {
     try {
       const token = localStorage.getItem(key.token);
       if (!token) {
-        toast.error('未登录，请先登录');
+        toast.error(t('webui.market.not_logged_in'));
         return;
       }
       const _token = JSON.parse(token);
@@ -134,10 +136,10 @@ export default function MarketPage () {
       if (result.code === 0 && result.data) {
         setPlugins(result.data);
       } else {
-        toast.error(result.message || '加载插件列表失败');
+        toast.error(result.message || t('webui.market.load_list_failed'));
       }
     } catch (e: any) {
-      toast.error(e.message || '加载插件列表失败');
+      toast.error(e.message || t('webui.market.load_list_failed'));
     } finally {
       setLoading(false);
     }
@@ -166,7 +168,7 @@ export default function MarketPage () {
     try {
       const token = localStorage.getItem(key.token);
       if (!token) {
-        toast.error('未登录，请先登录');
+        toast.error(t('webui.market.not_logged_in'));
         return;
       }
       const _token = JSON.parse(token);
@@ -185,21 +187,21 @@ export default function MarketPage () {
         const data = result.data as UpdateResult;
         if (data.success) {
           if (data.warnings && data.warnings.length > 0) {
-            toast.success(`插件 ${data.pluginName} 已更新到 v${data.newVersion}！\n警告: ${data.warnings.join(', ')}`, {
+            toast.success(t('webui.market.update_success_with_warnings', [data.pluginName || '', data.newVersion || '', data.warnings.join(', ')]), {
               duration: 5000,
             });
           } else {
-            toast.success(`插件 ${data.pluginName} 已更新到 v${data.newVersion}！`);
+            toast.success(t('webui.market.update_success', [data.pluginName || '', data.newVersion || '']));
           }
           loadInstalledPlugins();
         } else {
-          toast.error(data.message || '更新失败');
+          toast.error(data.message || t('webui.market.update_failed'));
         }
       } else {
-        toast.error(result.message || '更新失败');
+        toast.error(result.message || t('webui.market.update_failed'));
       }
     } catch (e: any) {
-      toast.error(e.message || '更新失败');
+      toast.error(e.message || t('webui.market.update_failed'));
     } finally {
       setUpdating(null);
     }
@@ -210,7 +212,7 @@ export default function MarketPage () {
     try {
       const token = localStorage.getItem(key.token);
       if (!token) {
-        toast.error('未登录，请先登录');
+        toast.error(t('webui.market.not_logged_in'));
         return;
       }
       const _token = JSON.parse(token);
@@ -229,26 +231,26 @@ export default function MarketPage () {
         const data = result.data as InstallResult;
         if (data.success) {
           if (data.warnings && data.warnings.length > 0) {
-            toast.success(`插件 ${data.pluginName} 安装成功！\n警告: ${data.warnings.join(', ')}`, {
+            toast.success(t('webui.market.install_success_with_warnings', [data.pluginName || '', data.warnings.join(', ')]), {
               duration: 5000,
             });
           } else {
-            toast.success(`插件 ${data.pluginName} 安装成功！`);
+            toast.success(t('webui.market.install_success', data.pluginName || ''));
           }
           loadInstalledPlugins();
         } else if (data.alreadyInstalled) {
-          toast(`插件 ${data.pluginName} v${data.installedVersion} 已安装`, {
+          toast(t('webui.market.already_installed', [data.pluginName || '', data.installedVersion || '']), {
             icon: 'ℹ️',
             duration: 3000,
           });
         } else {
-          toast.error(data.message || '安装失败');
+          toast.error(data.message || t('webui.market.install_failed'));
         }
       } else {
-        toast.error(result.message || '安装失败');
+        toast.error(result.message || t('webui.market.install_failed'));
       }
     } catch (e: any) {
-      toast.error(e.message || '安装失败');
+      toast.error(e.message || t('webui.market.install_failed'));
     } finally {
       setInstalling(null);
     }
@@ -260,7 +262,7 @@ export default function MarketPage () {
     try {
       const token = localStorage.getItem(key.token);
       if (!token) {
-        toast.error('未登录，请先登录');
+        toast.error(t('webui.market.not_logged_in'));
         return;
       }
       const _token = JSON.parse(token);
@@ -276,11 +278,11 @@ export default function MarketPage () {
         setSelectedPlugin(result.data);
       } else {
         setSelectedPlugin({ ...plugin } as MarketPluginDetail);
-        toast.error(result.message || '加载插件详情失败');
+        toast.error(result.message || t('webui.market.load_detail_failed'));
       }
     } catch (e: any) {
       setSelectedPlugin({ ...plugin } as MarketPluginDetail);
-      toast.error(e.message || '加载插件详情失败');
+      toast.error(e.message || t('webui.market.load_detail_failed'));
     } finally {
       setLoadingDetail(false);
     }
@@ -296,12 +298,12 @@ export default function MarketPage () {
 
   return (
     <div className='flex flex-col h-full w-full gap-4 p-2 md:p-4'>
-      <title>插件市场 - MorningCat WebUI</title>
+      <title>{t('webui.market.title')}</title>
 
       <div className='flex flex-col md:flex-row items-start md:items-center justify-between gap-4'>
         <div className='flex items-center gap-3'>
-          <h1 className='text-2xl font-bold'>插件市场</h1>
-          <Tooltip content='刷新列表'>
+          <h1 className='text-2xl font-bold'>{t('webui.market.heading')}</h1>
+          <Tooltip content={t('webui.market.refresh')}>
             <Button
               isIconOnly
               size='sm'
@@ -317,7 +319,7 @@ export default function MarketPage () {
         </div>
 
         <Input
-          placeholder='搜索插件...'
+          placeholder={t('webui.market.search_placeholder')}
           startContent={<IoMdSearch className='text-default-400' />}
           value={searchQuery}
           onValueChange={setSearchQuery}
@@ -338,7 +340,7 @@ export default function MarketPage () {
         </div>
       ) : filteredPlugins.length === 0 ? (
         <div className='flex items-center justify-center h-[200px] text-default-400'>
-          {searchQuery ? '没有找到匹配的插件' : '暂无可用插件'}
+          {searchQuery ? t('webui.market.no_match') : t('webui.market.no_plugins')}
         </div>
       ) : (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
@@ -368,11 +370,11 @@ export default function MarketPage () {
                     v{plugin.version}
                   </Chip>
                 </div>
-                <p className='text-xs text-default-500'>作者: {plugin.author}</p>
+                <p className='text-xs text-default-500'>{t('webui.market.author', plugin.author)}</p>
               </CardHeader>
               <CardBody className='py-3'>
                 <p className='text-sm text-default-600 line-clamp-2 mb-3'>
-                  {plugin.description || '暂无描述'}
+                  {plugin.description || t('webui.market.no_description')}
                 </p>
                 {plugin.tags && plugin.tags.length > 0 && (
                   <div className='flex flex-wrap gap-1 mb-3'>
@@ -395,7 +397,7 @@ export default function MarketPage () {
                         isLoading={updating === plugin.id}
                         className='flex-1'
                       >
-                        更新
+                        {t('webui.market.update')}
                       </Button>
                     ) : (
                       <Button
@@ -405,7 +407,7 @@ export default function MarketPage () {
                         isDisabled
                         className='flex-1'
                       >
-                        已安装
+                        {t('webui.market.installed')}
                       </Button>
                     )
                   ) : (
@@ -418,7 +420,7 @@ export default function MarketPage () {
                       isLoading={installing === plugin.id}
                       className='flex-1'
                     >
-                      安装
+                      {t('webui.market.install')}
                     </Button>
                   )}
                   <Button
@@ -446,7 +448,7 @@ export default function MarketPage () {
         scrollBehavior='inside'
       >
         <ModalContent>
-          <ModalHeader>插件详情</ModalHeader>
+          <ModalHeader>{t('webui.market.detail')}</ModalHeader>
           <ModalBody>
             {loadingDetail ? (
               <div className='flex items-center justify-center h-[200px]'>
@@ -457,21 +459,21 @@ export default function MarketPage () {
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                   <div className='space-y-4'>
                     <div>
-                      <p className='text-small text-default-500'>版本</p>
+                      <p className='text-small text-default-500'>{t('webui.market.version')}</p>
                       <p>{selectedPlugin.version}</p>
                     </div>
                     <div>
-                      <p className='text-small text-default-500'>作者</p>
+                      <p className='text-small text-default-500'>{t('webui.market.author_label')}</p>
                       <p>{selectedPlugin.author}</p>
                     </div>
                     <div>
-                      <p className='text-small text-default-500'>描述</p>
-                      <p>{selectedPlugin.description || '暂无描述'}</p>
+                      <p className='text-small text-default-500'>{t('webui.market.description')}</p>
+                      <p>{selectedPlugin.description || t('webui.market.no_description')}</p>
                     </div>
                     {selectedPlugin.documentation && (
                       <div>
                         <Divider className='my-2' />
-                        <p className='text-small text-default-500 mb-2'>文档</p>
+                        <p className='text-small text-default-500 mb-2'>{t('webui.market.documentation')}</p>
                         <div className='rounded-lg border border-default-200 p-4 bg-default-50 max-h-80 overflow-y-auto'>
                           <TailwindMarkdown content={selectedPlugin.documentation} />
                         </div>
@@ -482,7 +484,7 @@ export default function MarketPage () {
                   <div className='space-y-4'>
                     {selectedPlugin.website && (
                       <div>
-                        <p className='text-small text-default-500'>网址</p>
+                        <p className='text-small text-default-500'>{t('webui.market.website')}</p>
                         <a
                           href={selectedPlugin.website}
                           target='_blank'
@@ -496,7 +498,7 @@ export default function MarketPage () {
 
                     {selectedPlugin.tags && selectedPlugin.tags.length > 0 && (
                       <div>
-                        <p className='text-small text-default-500 mb-2'>标签</p>
+                        <p className='text-small text-default-500 mb-2'>{t('webui.market.tags')}</p>
                         <div className='flex flex-wrap gap-2'>
                           {selectedPlugin.tags.map((tag) => (
                             <Chip key={tag} size='sm' variant='flat'>{tag}</Chip>
@@ -507,8 +509,8 @@ export default function MarketPage () {
 
                     {selectedPlugin.dependencies && selectedPlugin.dependencies.length > 0 && (
                       <div>
-                        <p className='text-small text-default-500 mb-2 text-warning'>插件依赖</p>
-                        <p className='text-xs text-warning-500 mb-2'>需要手动安装以下前置插件:</p>
+                        <p className='text-small text-default-500 mb-2 text-warning'>{t('webui.market.plugin_deps')}</p>
+                        <p className='text-xs text-warning-500 mb-2'>{t('webui.market.plugin_deps_hint')}</p>
                         <div className='flex flex-wrap gap-2'>
                           {selectedPlugin.dependencies.map((dep) => (
                             <Chip key={dep} size='sm' variant='flat' color='warning'>{dep}</Chip>
@@ -519,8 +521,8 @@ export default function MarketPage () {
 
                     {selectedPlugin.nugetDependencies && selectedPlugin.nugetDependencies.length > 0 && (
                       <div>
-                        <p className='text-small text-default-500 mb-2'>NuGet 依赖</p>
-                        <p className='text-xs text-default-500 mb-2'>安装时会自动还原:</p>
+                        <p className='text-small text-default-500 mb-2'>{t('webui.market.nuget_deps')}</p>
+                        <p className='text-xs text-default-500 mb-2'>{t('webui.market.nuget_deps_hint')}</p>
                         <div className='flex flex-wrap gap-2'>
                           {selectedPlugin.nugetDependencies.map((dep) => (
                             <Chip key={dep} size='sm' variant='flat' color='secondary'>{dep}</Chip>
@@ -531,7 +533,7 @@ export default function MarketPage () {
 
                     {selectedPlugin.libraryDependencies && selectedPlugin.libraryDependencies.length > 0 && (
                       <div>
-                        <p className='text-small text-default-500 mb-2'>依赖库文件</p>
+                        <p className='text-small text-default-500 mb-2'>{t('webui.market.lib_deps')}</p>
                         <div className='space-y-2'>
                           {selectedPlugin.libraryDependencies.map((dep) => (
                             <div key={dep.fileName} className='flex items-center justify-between bg-content3 p-2 rounded-lg'>
@@ -541,7 +543,7 @@ export default function MarketPage () {
                                   <p className='text-xs text-default-500 truncate'>{dep.description}</p>
                                 )}
                                 <p className='text-xs text-default-400'>
-                                  {dep.exists ? formatSize(dep.size) : '文件不存在'}
+                                  {dep.exists ? formatSize(dep.size) : t('webui.market.file_not_found')}
                                 </p>
                               </div>
                             </div>
@@ -553,23 +555,23 @@ export default function MarketPage () {
                     <Divider />
 
                     <div>
-                      <p className='text-small text-default-500'>插件文件</p>
+                      <p className='text-small text-default-500'>{t('webui.market.plugin_files')}</p>
                       <p>
                         {selectedPlugin.hasDll
-                          ? `DLL 大小: ${formatSize(selectedPlugin.dllSize || 0)}`
-                          : '无 DLL 文件'}
+                          ? t('webui.market.dll_size', formatSize(selectedPlugin.dllSize || 0))
+                          : t('webui.market.no_dll')}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className='text-center text-default-400 py-8'>无法加载插件详情</div>
+              <div className='text-center text-default-400 py-8'>{t('webui.market.load_detail_failed')}</div>
             )}
           </ModalBody>
           <ModalFooter>
             <Button variant='light' onPress={() => setDetailModalOpen(false)}>
-              关闭
+              {t('webui.common.close')}
             </Button>
             {selectedPlugin && (
               <Button
@@ -581,7 +583,7 @@ export default function MarketPage () {
                 }}
                 isLoading={installing === selectedPlugin.id}
               >
-                安装
+                {t('webui.market.install')}
               </Button>
             )}
           </ModalFooter>

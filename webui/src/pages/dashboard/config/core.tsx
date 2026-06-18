@@ -7,6 +7,7 @@ import PageLoading from '@/components/page_loading';
 import SwitchCard from '@/components/switch_card';
 
 import QQManager from '@/controllers/qq_manager';
+import useI18n from '@/hooks/use-i18n';
 
 interface CoreFormData {
   fileLog: boolean;
@@ -15,6 +16,7 @@ interface CoreFormData {
 }
 
 const CoreConfigCard = () => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const {
     control,
@@ -30,10 +32,10 @@ const CoreConfigCard = () => {
       setValue('fileLog', config.fileLog ?? false);
       setValue('consoleLog', config.consoleLog ?? true);
       setValue('autoTimeSync', config.autoTimeSync ?? true);
-      if (showTip) toast.success('刷新成功');
+      if (showTip) toast.success(t('webui.core.refresh_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`获取配置失败: ${msg}`);
+      toast.error(t('webui.core.fetch_failed', msg));
     } finally {
       setLoading(false);
     }
@@ -42,10 +44,10 @@ const CoreConfigCard = () => {
   const onSubmit = handleSubmit(async (data) => {
     try {
       await QQManager.setNapCatUinConfig(data);
-      toast.success('保存成功，重启后生效');
+      toast.success(t('webui.core.save_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`保存失败: ${msg}`);
+      toast.error(t('webui.core.save_failed', msg));
     }
   });
 
@@ -65,11 +67,11 @@ const CoreConfigCard = () => {
 
   return (
     <>
-      <title>核心配置 - NapCat WebUI</title>
+      <title>{t('webui.config.core.title')}</title>
       <div className='flex flex-col gap-1 mb-2'>
-        <h3 className='text-lg font-semibold text-default-700'>NapCat 核心配置</h3>
+        <h3 className='text-lg font-semibold text-default-700'>{t('webui.core.heading')}</h3>
         <p className='text-sm text-default-500'>
-          控制 NapCat 框架底层的核心行为设定，修改后需重启生效。
+          {t('webui.core.description')}
         </p>
       </div>
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
@@ -79,8 +81,8 @@ const CoreConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='自动对时'
-              description='自动校验并矫正系统时间偏差'
+              label={t('webui.core.auto_time_sync')}
+              description={t('webui.core.auto_time_sync_desc')}
             />
           )}
         />
@@ -90,8 +92,8 @@ const CoreConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='文件日志'
-              description='是否将登录后日志写入到本地文件'
+              label={t('webui.core.file_log')}
+              description={t('webui.core.file_log_desc')}
             />
           )}
         />
@@ -101,8 +103,8 @@ const CoreConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='控制台日志'
-              description='是否在终端标准输出显示日志'
+              label={t('webui.core.console_log')}
+              description={t('webui.core.console_log_desc')}
             />
           )}
         />

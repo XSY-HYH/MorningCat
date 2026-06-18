@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 import WebUIManager, { type MessageEntry } from '@/controllers/webui_manager';
 
@@ -22,6 +23,7 @@ interface FriendInfo {
 }
 
 export default function MessagesPage () {
+  const { t } = useI18n();
   const [messages, setMessages] = useState<MessageEntry[]>([]);
   const [backgroundImage] = useLocalStorage<string>(key.backgroundImage, '');
   const hasBackground = !!backgroundImage;
@@ -59,14 +61,14 @@ export default function MessagesPage () {
           setFriendList(friendResult.data || []);
         }
       } catch {
-        toast.error('加载联系人列表失败');
+        toast.error(t('webui.messages.load_contacts_failed'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchContacts();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let source: { close: () => void } | null = null;
@@ -105,13 +107,13 @@ export default function MessagesPage () {
 
   const handleSend = async () => {
     if (!selectedTarget || !sendMessage.trim()) {
-      toast.error('请选择发送目标和填写消息内容');
+      toast.error(t('webui.messages.select_target'));
       return;
     }
 
     const targetId = parseInt(selectedTarget, 10);
     if (isNaN(targetId)) {
-      toast.error('无效的目标ID');
+      toast.error(t('webui.messages.invalid_id'));
       return;
     }
 
@@ -132,13 +134,13 @@ export default function MessagesPage () {
       });
       const result = await response.json();
       if (result.code === 0 && result.data?.success) {
-        toast.success('消息发送成功');
+        toast.success(t('webui.messages.send_success'));
         setSendMessage('');
       } else {
-        toast.error(result.message || '发送失败');
+        toast.error(result.message || t('webui.messages.send_failed'));
       }
     } catch {
-      toast.error('发送消息失败');
+      toast.error(t('webui.messages.send_failed'));
     } finally {
       setSending(false);
     }
@@ -149,7 +151,7 @@ export default function MessagesPage () {
     try {
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(content);
-        toast.success('已复制到剪贴板');
+        toast.success(t('webui.messages.copied'));
       } else {
         const textarea = document.createElement('textarea');
         textarea.value = content;
@@ -159,10 +161,10 @@ export default function MessagesPage () {
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
-        toast.success('已复制到剪贴板');
+        toast.success(t('webui.messages.copied'));
       }
     } catch {
-      toast.error('复制失败');
+      toast.error(t('webui.messages.copy_failed'));
     }
   };
 
@@ -179,12 +181,12 @@ export default function MessagesPage () {
     if (msg.messageType === 'group') {
       return `[${msg.groupName}]-[${msg.senderName}]`;
     }
-    return `[私聊]-[${msg.senderName}]`;
+    return `${t('webui.messages.private_label')}-[${msg.senderName}]`;
   };
 
   return (
     <>
-      <title>消息监控 - MorningCat WebUI</title>
+      <title>{t('webui.messages.title')}</title>
       <div className='h-[calc(100vh_-_8rem)] flex flex-col gap-4 items-center pt-4 px-2'>
         <div className={clsx(
           'w-full flex-1 h-full overflow-hidden rounded-2xl border backdrop-blur-sm transition-all shadow-sm flex flex-col',
@@ -193,14 +195,14 @@ export default function MessagesPage () {
         >
           <div className='flex items-center justify-between px-4 py-2 border-b border-white/10'>
             <div className='flex items-center gap-2'>
-              <span className='text-sm font-medium'>消息监控</span>
+              <span className='text-sm font-medium'>{t('webui.messages.heading')}</span>
               <span className={clsx(
                 'text-xs px-1.5 py-0.5 rounded',
                 connected ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400' : 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-400'
               )}>
-                {connected ? '已连接' : '未连接'}
+                {connected ? t('webui.messages.connected') : t('webui.messages.disconnected')}
               </span>
-              <span className='text-xs text-default-400'>{messages.length} 条消息</span>
+              <span className='text-xs text-default-400'>{t('webui.messages.count', messages.length)}</span>
             </div>
             {!autoScroll && (
               <button
@@ -212,7 +214,7 @@ export default function MessagesPage () {
                   }
                 }}
               >
-                回到底部
+                {t('webui.messages.scroll_bottom')}
               </button>
             )}
           </div>
@@ -221,7 +223,7 @@ export default function MessagesPage () {
             <Select
               className='w-32'
               size='sm'
-              aria-label='消息类型'
+              aria-label={t('webui.messages.type_label')}
               selectedKeys={new Set([sendType])}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as string;
@@ -231,16 +233,16 @@ export default function MessagesPage () {
                 }
               }}
             >
-              <SelectItem key='group'>群聊</SelectItem>
-              <SelectItem key='private'>私聊</SelectItem>
+              <SelectItem key='group'>{t('webui.messages.group')}</SelectItem>
+              <SelectItem key='private'>{t('webui.messages.private')}</SelectItem>
             </Select>
 
             <Select
               className='flex-1'
               size='sm'
               key={sendType}
-              aria-label='发送目标'
-              placeholder={sendType === 'group' ? '选择群聊' : '选择好友'}
+              aria-label={t('webui.messages.send_target')}
+              placeholder={sendType === 'group' ? t('webui.messages.select_group') : t('webui.messages.select_friend')}
               selectedKeys={selectedTarget ? new Set([selectedTarget]) : new Set()}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as string;
@@ -249,7 +251,7 @@ export default function MessagesPage () {
               isLoading={loading}
             >
               {sendType === 'group' ? (
-                <SelectSection key='groups' title='群聊'>
+                <SelectSection key='groups' title={t('webui.messages.groups_section')}>
                   {groupList.map((g) => (
                     <SelectItem key={String(g.groupId)} textValue={`${g.groupName} (${g.groupId})`}>
                       {g.groupName} ({g.groupId})
@@ -257,7 +259,7 @@ export default function MessagesPage () {
                   ))}
                 </SelectSection>
               ) : (
-                <SelectSection key='friends' title='好友'>
+                <SelectSection key='friends' title={t('webui.messages.friends_section')}>
                   {friendList.map((f) => (
                     <SelectItem key={String(f.userId)} textValue={`${f.remark || f.nickname} (${f.userId})`}>
                       {f.remark || f.nickname} ({f.userId})
@@ -270,7 +272,7 @@ export default function MessagesPage () {
             <Input
               className='flex-1'
               size='sm'
-              placeholder='支持CQ码，如 [CQ:at,qq=123456]'
+              placeholder={t('webui.messages.cq_placeholder')}
               value={sendMessage}
               onValueChange={setSendMessage}
               onKeyDown={(e) => {
@@ -288,7 +290,7 @@ export default function MessagesPage () {
               onPress={handleSend}
               isDisabled={!selectedTarget || !sendMessage.trim()}
             >
-              发送
+              {t('webui.messages.send')}
             </Button>
           </div>
 
@@ -299,7 +301,7 @@ export default function MessagesPage () {
           >
             {messages.length === 0 && (
               <div className='flex items-center justify-center h-full text-default-400 text-sm'>
-                等待消息中...
+                {t('webui.messages.waiting')}
               </div>
             )}
             {messages.map((msg, idx) => (
@@ -324,9 +326,9 @@ export default function MessagesPage () {
                     msg.hasUnsupportedContent ? 'text-warning-500' : 'text-foreground'
                   )}
                   onClick={() => handleCopyContent(msg.content)}
-                  title='点击复制消息内容'
+                  title={t('webui.messages.copy_message')}
                 >
-                  {msg.content || (msg.hasUnsupportedContent ? '[不支持的消息]' : '')}
+                  {msg.content || (msg.hasUnsupportedContent ? t('webui.messages.unsupported') : '')}
                 </span>
               </div>
             ))}

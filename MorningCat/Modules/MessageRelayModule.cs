@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Logging;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -57,7 +58,7 @@ namespace MorningCat.Modules
 
         public async Task Init()
         {
-            Log.Info("消息转发模块初始化完成");
+            Log.Info(I18nManager.S("message.relay_initialized"));
             await Task.CompletedTask;
         }
 
@@ -89,7 +90,7 @@ namespace MorningCat.Modules
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"消息转发模块处理消息失败: {ex.Message}");
+                    Log.Error(I18nManager.S("message.relay_failed", ex.Message));
                 }
             });
         }
@@ -133,9 +134,9 @@ namespace MorningCat.Modules
                 hasUnsupported = true;
                 if (string.IsNullOrWhiteSpace(plainText))
                 {
-                    return "[不支持的消息]";
+                    return I18nManager.S("message.unsupported_content");
                 }
-                return plainText + " [不支持的消息]";
+                return plainText + " " + I18nManager.S("message.unsupported_content");
             }
 
             return plainText;

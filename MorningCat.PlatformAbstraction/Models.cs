@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MorningCat.I18n;
+using YamlDotNet.Serialization;
 
 namespace MorningCat.PlatformAbstraction
 {
@@ -82,7 +84,7 @@ namespace MorningCat.PlatformAbstraction
         public string GetSourceInfo()
         {
             if (MessageType == UnifiedMessageType.Group && GroupId != null)
-                return $"{SenderDisplayName}（{SenderId}）, 群组: {GroupId} [{Platform}]";
+                return $"{SenderDisplayName}（{SenderId}）, {I18nManager.S("log.group")}: {GroupId} [{Platform}]";
             return $"{SenderDisplayName}（{SenderId}） [{Platform}]";
         }
 
@@ -95,7 +97,7 @@ namespace MorningCat.PlatformAbstraction
                 var gName = GroupName ?? GroupId;
                 return $"[{gName}]{SenderDisplayName}: {text}";
             }
-            return $"[私聊]{SenderDisplayName}: {text}";
+            return $"[{I18nManager.S("log.private")}]{SenderDisplayName}: {text}";
         }
     }
 
@@ -244,6 +246,7 @@ namespace MorningCat.PlatformAbstraction
     public abstract class PlatformConfig
     {
         /// <summary>是否启用此平台</summary>
+        [YamlMember(Alias = "enabled")]
         public bool Enabled { get; set; } = false;
     }
 
@@ -253,12 +256,15 @@ namespace MorningCat.PlatformAbstraction
     public class DiscordConfig : PlatformConfig
     {
         /// <summary>Bot Token</summary>
+        [YamlMember(Alias = "token")]
         public string Token { get; set; } = "";
 
         /// <summary>目标服务器ID（为空则监听所有服务器）</summary>
+        [YamlMember(Alias = "guild_id")]
         public ulong? GuildId { get; set; }
 
         /// <summary>命令前缀</summary>
+        [YamlMember(Alias = "command_prefix")]
         public string CommandPrefix { get; set; } = "/";
     }
 
@@ -268,24 +274,31 @@ namespace MorningCat.PlatformAbstraction
     public class DingTalkConfig : PlatformConfig
     {
         /// <summary>机器人AppKey</summary>
+        [YamlMember(Alias = "app_key")]
         public string AppKey { get; set; } = "";
 
         /// <summary>机器人AppSecret</summary>
+        [YamlMember(Alias = "app_secret")]
         public string AppSecret { get; set; } = "";
 
         /// <summary>Stream连接模式使用的ClientID</summary>
+        [YamlMember(Alias = "client_id")]
         public string ClientId { get; set; } = "";
 
         /// <summary>Stream连接模式使用的ClientSecret</summary>
+        [YamlMember(Alias = "client_secret")]
         public string ClientSecret { get; set; } = "";
 
         /// <summary>Webhook地址（用于发送消息）</summary>
+        [YamlMember(Alias = "webhook_url")]
         public string WebhookUrl { get; set; } = "";
 
         /// <summary>Webhook签名密钥</summary>
+        [YamlMember(Alias = "webhook_secret")]
         public string WebhookSecret { get; set; } = "";
 
         /// <summary>是否使用Stream模式（长连接接收消息）</summary>
+        [YamlMember(Alias = "use_stream_mode")]
         public bool UseStreamMode { get; set; } = true;
     }
 
@@ -295,18 +308,23 @@ namespace MorningCat.PlatformAbstraction
     public class TwitterConfig : PlatformConfig
     {
         /// <summary>API Key</summary>
+        [YamlMember(Alias = "api_key")]
         public string ApiKey { get; set; } = "";
 
         /// <summary>API Secret</summary>
+        [YamlMember(Alias = "api_secret")]
         public string ApiSecret { get; set; } = "";
 
         /// <summary>Access Token</summary>
+        [YamlMember(Alias = "access_token")]
         public string AccessToken { get; set; } = "";
 
         /// <summary>Access Token Secret</summary>
+        [YamlMember(Alias = "access_token_secret")]
         public string AccessTokenSecret { get; set; } = "";
 
         /// <summary>Bearer Token</summary>
+        [YamlMember(Alias = "bearer_token")]
         public string BearerToken { get; set; } = "";
     }
 

@@ -6,10 +6,19 @@ namespace MorningCat.Config
 {
     public class BotConfig
     {
-        public string NapCatServerUrl { get; set; } = "ws://127.0.0.1:7892";
-        public string NapCatToken { get; set; } = "your_token_here";
+        [YamlMember(Alias = "onebot_server_url")]
+        public string OneBotServerUrl { get; set; } = "ws://127.0.0.1:7892";
+
+        [YamlMember(Alias = "onebot_token")]
+        public string OneBotToken { get; set; } = "your_token_here";
+
+        [YamlMember(Alias = "reconnect_delay")]
         public int ReconnectDelay { get; set; } = 5;
+
+        [YamlMember(Alias = "modules_directory")]
         public string ModulesDirectory { get; set; } = "Modules";
+
+        [YamlMember(Alias = "auto_load_modules")]
         public bool AutoLoadModules { get; set; } = true;
         
         [YamlMember(Alias = "plugin_signature_public_key")]
@@ -36,6 +45,9 @@ namespace MorningCat.Config
         [YamlMember(Alias = "enable_mct_status")]
         public bool EnableMctStatus { get; set; } = true;
         
+        [YamlMember(Alias = "lang")]
+        public string Lang { get; set; } = "zh";
+
         [YamlMember(Alias = "database")]
         public DatabaseConfig Database { get; set; } = new DatabaseConfig();
 
@@ -56,10 +68,19 @@ namespace MorningCat.Config
 
     public class WebUIConfig
     {
+        [YamlMember(Alias = "enabled")]
         public bool Enabled { get; set; } = true;
+
+        [YamlMember(Alias = "listen_address")]
         public string ListenAddress { get; set; } = "127.0.0.1";
+
+        [YamlMember(Alias = "port")]
         public int Port { get; set; } = 8080;
+
+        [YamlMember(Alias = "username")]
         public string Username { get; set; } = "admin";
+
+        [YamlMember(Alias = "password")]
         public string Password { get; set; } = "admin123";
     }
 

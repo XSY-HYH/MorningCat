@@ -20,7 +20,7 @@ namespace MorningCat
             if (!webUIConfig.Enabled)
             {
                 Log.Name("WebUI");
-                Log.Info("WebUI已禁用");
+                Log.Info(_i18n.T("webui.disabled"));
                 return;
             }
             
@@ -42,6 +42,7 @@ namespace MorningCat
                 _webUIManager.SetMessageRelayModule(_messageRelayModule);
                 _webUIManager.SetPluginDatabaseAPI(_pluginDatabaseAPI);
                 _webUIManager.SetMDC(_mdc);
+                _webUIManager.SetI18nManager(_i18n);
             }
             
             await _webUIManager.StartAsync();

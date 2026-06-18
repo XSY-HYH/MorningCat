@@ -28,15 +28,24 @@ namespace MorningCat.WebUI
 
     public class WebUIConfigData
     {
-        public string NapCatServerUrl { get; set; } = "ws://127.0.0.1:7892";
-        public string NapCatToken { get; set; } = "";
+        public string OneBotServerUrl { get; set; } = "ws://127.0.0.1:7892";
+        public string OneBotToken { get; set; } = "";
         public string ModulesDirectory { get; set; } = "Modules";
         public bool AutoLoadModules { get; set; } = true;
+        public bool EnableMctStatus { get; set; } = true;
         public long OwnerQQ { get; set; }
         public List<long> BlockedUsers { get; set; } = new List<long>();
         public List<long> BlockedGroups { get; set; } = new List<long>();
+        public string Lang { get; set; } = "zh";
+        public DatabaseConfigData Database { get; set; } = new DatabaseConfigData();
         public string PluginStoreUrl { get; set; } = "";
         public WebUISettings WebUI { get; set; } = new WebUISettings();
+    }
+
+    public class DatabaseConfigData
+    {
+        public string Type { get; set; } = "sqlite";
+        public string ConnectionString { get; set; } = "";
     }
 
     public class WebUISettings
@@ -118,7 +127,7 @@ namespace MorningCat.WebUI
         public string Qid { get; set; } = "";
         public int Level { get; set; }
         public bool IsOnline { get; set; }
-        public bool IsNapCatConnected { get; set; } = true;
+        public bool IsOneBotConnected { get; set; } = true;
     }
 
     public class PluginInfo
@@ -220,6 +229,14 @@ namespace MorningCat.WebUI
         public bool NotNull { get; set; }
         public bool IsPrimaryKey { get; set; }
         public string DefaultValue { get; set; } = "";
+    }
+
+    public interface II18nProvider
+    {
+        string CurrentLang { get; }
+        Dictionary<string, string> GetTranslations();
+        Dictionary<string, string>? GetTranslationsForLang(string lang);
+        List<string> GetAvailableLanguages();
     }
 
     public interface IMessageSendProvider

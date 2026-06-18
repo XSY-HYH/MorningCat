@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Logging;
+using MorningCat.I18n;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -47,7 +48,7 @@ namespace MorningCat.Config
 
         public PluginConfigManager()
         {
-            Log.Name("插件配置");
+            Log.Name("PluginConfig");
             var location = System.Reflection.Assembly.GetExecutingAssembly().Location;
             string exeDir = string.IsNullOrEmpty(location)
                 ? AppContext.BaseDirectory
@@ -57,7 +58,7 @@ namespace MorningCat.Config
             if (!Directory.Exists(_configDirectory))
             {
                 Directory.CreateDirectory(_configDirectory);
-                Log.Info($"创建配置目录: {_configDirectory}");
+                Log.Info(I18nManager.S("config.dir_created", _configDirectory));
             }
 
             _deserializer = new DeserializerBuilder()
@@ -109,7 +110,7 @@ namespace MorningCat.Config
                 
                 if (!File.Exists(filePath))
                 {
-                    Log.Debug($"配置文件不存在，使用默认值: {filePath}");
+                    Log.Debug(I18nManager.S("config.file_not_found_default", filePath));
                     
                     if (defaultValue != null)
                     {
@@ -117,11 +118,11 @@ namespace MorningCat.Config
                         {
                             string defaultYaml = GenerateYamlWithComments(pluginName, configName, defaultValue);
                             await File.WriteAllTextAsync(filePath, defaultYaml);
-                            Log.Info($"已创建默认配置文件: {filePath}");
+                            Log.Info(I18nManager.S("config.default_created", filePath));
                         }
                         catch (Exception writeEx)
                         {
-                            Log.Warning($"创建默认配置文件失败: {writeEx.Message}");
+                            Log.Warning(I18nManager.S("config.default_create_failed", writeEx.Message));
                         }
                     }
                     
@@ -131,12 +132,12 @@ namespace MorningCat.Config
                 string yaml = await File.ReadAllTextAsync(filePath);
                 var config = _deserializer.Deserialize<T>(yaml);
                 
-                Log.Debug($"加载配置文件成功: {filePath}");
+                Log.Debug(I18nManager.S("config.load_success", filePath));
                 return config ?? defaultValue ?? new T();
             }
             catch (Exception ex)
             {
-                Log.Error($"加载配置文件失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.load_failed", ex.Message));
 
                 if (defaultValue != null)
                 {
@@ -144,11 +145,11 @@ namespace MorningCat.Config
                     {
                         string defaultYaml = GenerateYamlWithComments(pluginName, configName, defaultValue);
                         await File.WriteAllTextAsync(filePath, defaultYaml);
-                        Log.Info($"已用默认值覆盖损坏的配置文件: {filePath}");
+                        Log.Info(I18nManager.S("config.corrupted_overwritten", filePath));
                     }
                     catch (Exception writeEx)
                     {
-                        Log.Warning($"覆盖损坏配置文件失败: {writeEx.Message}");
+                        Log.Warning(I18nManager.S("config.corrupted_overwrite_failed", writeEx.Message));
                     }
                 }
 
@@ -166,11 +167,11 @@ namespace MorningCat.Config
                 string yaml = GenerateYamlWithComments(pluginName, configName, config);
                 
                 await File.WriteAllTextAsync(filePath, yaml);
-                Log.Debug($"保存配置文件成功: {filePath}");
+                Log.Debug(I18nManager.S("config.save_success", filePath));
             }
             catch (Exception ex)
             {
-                Log.Error($"保存配置文件失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.save_failed", ex.Message));
                 throw;
             }
         }
@@ -239,14 +240,14 @@ namespace MorningCat.Config
                 
                 if (!configExists)
                 {
-                    Log.Debug($"配置文件不存在，创建默认配置: {filePath}");
+                    Log.Debug(I18nManager.S("config.value_not_found_creating", filePath));
                     var defaultConfig = new Dictionary<string, object>();
                     
                     SetNestedValue(defaultConfig, keyPath, defaultValue);
                     
                     await SetConfigAsync(pluginName, configName, defaultConfig);
                     
-                    Log.Debug($"已创建默认配置并设置默认值: {keyPath} = {defaultValue}");
+                    Log.Debug(I18nManager.S("config.default_value_set", keyPath, defaultValue));
                     return defaultValue;
                 }
                 
@@ -263,11 +264,11 @@ namespace MorningCat.Config
                     }
                     else
                     {
-                        Log.Debug($"配置键路径不存在: {keyPath}");
+                        Log.Debug(I18nManager.S("config.key_not_found", keyPath));
                         
                         SetNestedValue(configDict, keyPath, defaultValue);
                         await SetConfigAsync(pluginName, configName, configDict);
-                        Log.Info($"已更新配置并设置默认值: {keyPath} = {defaultValue}");
+                        Log.Info(I18nManager.S("config.key_updated_default", keyPath, defaultValue));
                         
                         return defaultValue;
                     }
@@ -282,7 +283,7 @@ namespace MorningCat.Config
             }
             catch (Exception ex)
             {
-                Log.Error($"获取配置值失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.get_value_failed", ex.Message));
                 return defaultValue;
             }
         }
@@ -310,11 +311,11 @@ namespace MorningCat.Config
                 
                 await SetConfigAsync(pluginName, configName, configDict);
                 
-                Log.Debug($"设置配置值成功: {keyPath} = {value}");
+                Log.Debug(I18nManager.S("config.set_value_success", keyPath, value));
             }
             catch (Exception ex)
             {
-                Log.Error($"设置配置值失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.set_value_failed", ex.Message));
                 throw;
             }
         }
@@ -334,12 +335,12 @@ namespace MorningCat.Config
                 if (File.Exists(filePath))
                 {
                     await Task.Run(() => File.Delete(filePath));
-                    Log.Debug($"删除配置文件成功: {filePath}");
+                    Log.Debug(I18nManager.S("config.delete_success", filePath));
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"删除配置文件失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.delete_failed", ex.Message));
                 throw;
             }
         }
@@ -350,13 +351,13 @@ namespace MorningCat.Config
             var added = pluginConfigs.TryAdd(configName, true);
             if (added)
             {
-                Log.Debug($"[RegisterConfig] 注册配置: 插件='{pluginName}', 配置名='{configName}' (当前模块: '{_currentModuleName ?? "(无)"}')");
+                Log.Debug(I18nManager.S("config.register_config", pluginName, configName, _currentModuleName ?? "(null)"));
             }
             
             if (_currentModuleName != null && _currentModuleName != pluginName)
             {
                 _moduleNameToPluginName.TryAdd(_currentModuleName, pluginName);
-                Log.Debug($"[RegisterConfig] 模块名映射: '{_currentModuleName}' -> '{pluginName}'");
+                Log.Debug(I18nManager.S("config.module_name_mapping", _currentModuleName, pluginName));
             }
         }
 
@@ -368,18 +369,18 @@ namespace MorningCat.Config
             if (_moduleNameToPluginName.TryGetValue(pluginName, out var mappedName))
             {
                 actualPluginName = mappedName;
-                Log.Debug($"[GetRegisteredConfigs] 模块名映射: '{pluginName}' -> '{actualPluginName}'");
+                Log.Debug(I18nManager.S("config.get_registered_mapping", pluginName, actualPluginName));
             }
             
-            Log.Debug($"[GetRegisteredConfigs] 查找插件 '{actualPluginName}' 的已注册配置");
+            Log.Debug(I18nManager.S("config.get_registered_lookup", actualPluginName));
             
             if (!_registeredConfigs.TryGetValue(actualPluginName, out var pluginConfigs))
             {
-                Log.Debug($"[GetRegisteredConfigs] 插件 '{actualPluginName}' 没有已注册的配置 (已注册插件: [{string.Join(", ", _registeredConfigs.Keys)}])");
+                Log.Debug(I18nManager.S("config.get_registered_none", actualPluginName, string.Join(", ", _registeredConfigs.Keys)));
                 return result;
             }
             
-            Log.Debug($"[GetRegisteredConfigs] 插件 '{actualPluginName}' 有 {pluginConfigs.Count} 个已注册配置: [{string.Join(", ", pluginConfigs.Keys)}]");
+            Log.Debug(I18nManager.S("config.get_registered_found", actualPluginName, pluginConfigs.Count, string.Join(", ", pluginConfigs.Keys)));
             
             foreach (var configName in pluginConfigs.Keys)
             {
@@ -395,11 +396,11 @@ namespace MorningCat.Config
                     var fileInfo = new FileInfo(filePath);
                     info.LastModified = fileInfo.LastWriteTime;
                     info.FileSize = fileInfo.Length;
-                    Log.Debug($"[GetRegisteredConfigs] 配置文件存在: {filePath} (大小: {info.FileSize} 字节)");
+                    Log.Debug(I18nManager.S("config.file_exists", filePath, info.FileSize));
                 }
                 else
                 {
-                    Log.Debug($"[GetRegisteredConfigs] 配置文件不存在: {filePath}");
+                    Log.Debug(I18nManager.S("config.file_not_exists", filePath));
                 }
                 
                 result.Add(info);
@@ -441,7 +442,7 @@ namespace MorningCat.Config
             }
             catch (Exception ex)
             {
-                Log.Error($"读取插件配置失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.read_plugin_failed", ex.Message));
                 return null;
             }
         }

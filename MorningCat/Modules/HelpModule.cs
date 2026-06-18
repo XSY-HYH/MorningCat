@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Logging;
 using MorningCat.Commands;
 using MorningCat.Config;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -31,17 +32,17 @@ namespace MorningCat.Modules
 
         public async Task Init()
         {
-            Log.Debug("帮助模块初始化中...");
+            Log.Debug(I18nManager.S("help_module.initializing"));
 
             if (_mdc == null || _configManager == null || _commandRegistry == null)
             {
-                Log.Debug("依赖注入不完整无法初始化帮助模块");
+                Log.Debug(I18nManager.S("help_module.di_incomplete"));
                 return;
             }
 
             RegisterHelpCommand();
 
-            Log.Info("帮助模块初始化完成!");
+            Log.Info(I18nManager.S("help_module.initialized"));
             await Task.CompletedTask;
         }
 
@@ -52,7 +53,7 @@ namespace MorningCat.Modules
                 new CommandParameter
                 {
                     Name = "command",
-                    Description = "命令名称或页码",
+                    Description = I18nManager.S("help_module.param_command"),
                     IsRequired = false,
                     DefaultValue = null
                 }
@@ -60,8 +61,8 @@ namespace MorningCat.Modules
 
             var success = _commandRegistry.RegisterCommand(
                 "help",
-                "显示命令帮助信息",
-                "@机器人 help 查看可用命令\n@机器人 help <页码> 查看指定页\n@机器人 help <命令名> 查看详细帮助",
+                I18nManager.S("help_module.desc"),
+                I18nManager.S("help_module.help_text"),
                 parameters,
                 HandleHelpCommand,
                 "HelpModule",
@@ -72,11 +73,11 @@ namespace MorningCat.Modules
 
             if (success)
             {
-                Log.Info("help命令注册成功");
+                Log.Info(I18nManager.S("help_module.registered"));
             }
             else
             {
-                Log.Error("help命令注册失败");
+                Log.Error(I18nManager.S("help_module.register_failed"));
             }
         }
 
@@ -106,7 +107,7 @@ namespace MorningCat.Modules
             }
             catch (Exception ex)
             {
-                Log.Error($"处理help命令失败: {ex.Message}");
+                Log.Error(I18nManager.S("help_module.handle_failed", ex.Message));
             }
         }
 
@@ -142,7 +143,7 @@ namespace MorningCat.Modules
 
             if (filteredCommands.Count == 0)
             {
-                await SendMessageAsync(message, "没有可用的命令");
+                await SendMessageAsync(message, I18nManager.S("help_module.no_commands"));
                 return;
             }
 
@@ -155,19 +156,19 @@ namespace MorningCat.Modules
                 .ToList();
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"可用命令列表 (第 {page}/{totalPages} 页):");
+            sb.AppendLine(I18nManager.S("help_module.command_list", page, totalPages));
             sb.AppendLine();
 
             foreach (var cmd in pageCommands)
             {
                 var permStr = GetPermissionString(cmd.Permission);
-                var scopeStr = cmd.Scope == CommandScope.PrivateOnly ? " [私聊]" : "";
+                var scopeStr = cmd.Scope == CommandScope.PrivateOnly ? I18nManager.S("help_module.scope_private") : "";
                 sb.AppendLine($"/{cmd.Name} - {cmd.Description}{permStr}{scopeStr}");
             }
 
             sb.AppendLine();
-            sb.AppendLine("使用 /help <页码> 查看更多");
-            sb.AppendLine("使用 /help <命令名> 查看详细帮助");
+            sb.AppendLine(I18nManager.S("help_module.more_pages"));
+            sb.AppendLine(I18nManager.S("help_module.detail_help"));
 
             await SendMessageAsync(message, sb.ToString());
         }
@@ -177,9 +178,9 @@ namespace MorningCat.Modules
             return permission switch
             {
                 CommandPermission.Everyone => "",
-                CommandPermission.GroupAdmin => " [群管理]",
-                CommandPermission.Owner => " [群主]",
-                CommandPermission.BotOwner => " [持有者]",
+                CommandPermission.GroupAdmin => I18nManager.S("help_module.perm_group_admin"),
+                CommandPermission.Owner => I18nManager.S("help_module.perm_owner"),
+                CommandPermission.BotOwner => I18nManager.S("help_module.perm_bot_owner"),
                 _ => ""
             };
         }
@@ -196,9 +197,9 @@ namespace MorningCat.Modules
 
         public async Task Exit()
         {
-            Log.Info("帮助模块正在清理...");
+            Log.Info(I18nManager.S("help_module.cleaning"));
             _commandRegistry?.UnregisterCommand("help");
-            Log.Info("帮助模块清理完成");
+            Log.Info(I18nManager.S("help_module.cleaned"));
             await Task.CompletedTask;
         }
     }

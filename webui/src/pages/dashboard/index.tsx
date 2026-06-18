@@ -4,6 +4,7 @@ import { useRequest } from 'ahooks';
 import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 import QQInfoCard from '@/components/qq_info_card';
 
@@ -103,6 +104,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 };
 
 const SystemStatusCard: React.FC<SystemStatusCardProps> = ({ setArchInfo }) => {
+  const { t } = useI18n();
   const [systemStatus, setSystemStatus] = useLocalStorage<SystemStatus | undefined>('napcat_system_status_cache', undefined);
   const isSetted = useRef(false);
   const [backgroundImage] = useLocalStorage<string>(key.backgroundImage, '');
@@ -113,7 +115,7 @@ const SystemStatusCard: React.FC<SystemStatusCardProps> = ({ setArchInfo }) => {
       const event = WebUIManager.getSystemStatus(setSystemStatus);
       return event;
     } catch (_error) {
-      console.error('获取系统状态失败');
+      // ignore
     }
   }, []);
 
@@ -163,13 +165,13 @@ const SystemStatusCard: React.FC<SystemStatusCardProps> = ({ setArchInfo }) => {
             <span>CPU</span>
           </h2>
           <div className='grid grid-cols-2 gap-2 mb-4'>
-            <SystemStatusItem title='型号' value={systemStatus?.cpu.model} size='lg' hasBackground={hasBackground} />
-            <SystemStatusItem title='内核数' value={systemStatus?.cpu.core} hasBackground={hasBackground} />
-            <SystemStatusItem title='主频' value={systemStatus?.cpu.speed} unit='GHz' hasBackground={hasBackground} />
+            <SystemStatusItem title={t('webui.dashboard.cpu_model')} value={systemStatus?.cpu.model} size='lg' hasBackground={hasBackground} />
+            <SystemStatusItem title={t('webui.dashboard.cpu_cores')} value={systemStatus?.cpu.core} hasBackground={hasBackground} />
+            <SystemStatusItem title={t('webui.dashboard.cpu_speed')} value={systemStatus?.cpu.speed} unit='GHz' hasBackground={hasBackground} />
           </div>
           <ProgressBar
             value={Number(systemStatus?.cpu.usage.system) || 0}
-            label='使用率'
+            label={t('webui.dashboard.cpu_usage')}
             percentText={`${systemStatus?.cpu.usage.system || 0}%`}
             hasBackground={hasBackground}
           />
@@ -181,18 +183,18 @@ const SystemStatusCard: React.FC<SystemStatusCardProps> = ({ setArchInfo }) => {
           )}
           >
             <BiSolidMemoryCard className='text-xl opacity-80' />
-            <span>内存</span>
+            <span>{t('webui.dashboard.memory')}</span>
           </h2>
           <div className='grid grid-cols-2 gap-2 mb-4'>
             <SystemStatusItem
-              title='总量'
+              title={t('webui.dashboard.memory_total')}
               value={systemStatus?.memory.total}
               size='lg'
               unit='MB'
               hasBackground={hasBackground}
             />
             <SystemStatusItem
-              title='使用量'
+              title={t('webui.dashboard.memory_used')}
               value={systemStatus?.memory.usage.system}
               unit='MB'
               hasBackground={hasBackground}
@@ -200,7 +202,7 @@ const SystemStatusCard: React.FC<SystemStatusCardProps> = ({ setArchInfo }) => {
           </div>
           <ProgressBar
             value={memoryUsagePercent}
-            label='使用率'
+            label={t('webui.dashboard.memory_usage')}
             percentText={`${memoryUsagePercent.toFixed(1)}%`}
             hasBackground={hasBackground}
           />
@@ -217,6 +219,7 @@ interface VersionInfo {
 }
 
 const VersionCard: React.FC = () => {
+  const { t } = useI18n();
   const [backgroundImage] = useLocalStorage<string>(key.backgroundImage, '');
   const hasBackground = !!backgroundImage;
   const [checking, setChecking] = useState(false);
@@ -224,7 +227,7 @@ const VersionCard: React.FC = () => {
   const [hasUpdate, setHasUpdate] = useState<boolean | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
-  const { data: versionInfo, loading: versionLoading } = useRequest(WebUIManager.GetNapCatVersion);
+  const { data: versionInfo, loading: versionLoading } = useRequest(WebUIManager.GetOneBotVersion);
 
   const checkUpdate = async () => {
     setChecking(true);
@@ -238,7 +241,6 @@ const VersionCard: React.FC = () => {
         setHasUpdate(null);
       }
     } catch (error) {
-      console.error('检查更新失败:', error);
       setHasUpdate(null);
     } finally {
       setChecking(false);
@@ -249,7 +251,7 @@ const VersionCard: React.FC = () => {
     try {
       await fetch('/api/base/PerformUpdate', { method: 'POST' });
     } catch (error) {
-      console.error('触发更新失败:', error);
+      // ignore
     }
     setShowUpdateDialog(false);
   };
@@ -267,7 +269,7 @@ const VersionCard: React.FC = () => {
             hasBackground ? 'text-white drop-shadow-sm' : 'text-default-700 dark:text-gray-200'
           )}
           >
-            <span>MorningCat 版本</span>
+            <span>{t('webui.dashboard.version')}</span>
           </h2>
           <Button
             size='sm'
@@ -277,24 +279,24 @@ const VersionCard: React.FC = () => {
             isLoading={checking}
             startContent={!checking && <IoRefresh className='text-base' />}
           >
-            检查更新
+            {t('webui.dashboard.check_update')}
           </Button>
         </div>
         
         <div className='space-y-2'>
           <div className='flex justify-between items-center'>
             <span className={clsx('text-sm', hasBackground ? 'text-white/80' : 'text-default-500')}>
-              当前版本
+              {t('webui.dashboard.current_version')}
             </span>
             <span className={clsx('font-mono text-sm', hasBackground ? 'text-white/90' : 'text-default-700')}>
-              {versionLoading ? '加载中...' : `v${versionInfo?.version || '1.0.0'}`}
+              {versionLoading ? t('webui.dashboard.loading') : `v${versionInfo?.version || '1.0.0'}`}
             </span>
           </div>
           
           {remoteVersion && (
             <div className='flex justify-between items-center'>
               <span className={clsx('text-sm', hasBackground ? 'text-white/80' : 'text-default-500')}>
-                最新版本
+                {t('webui.dashboard.latest_version')}
               </span>
               <span className={clsx('font-mono text-sm flex items-center gap-1', hasBackground ? 'text-white/90' : 'text-default-700')}>
                 {hasUpdate ? (
@@ -308,10 +310,10 @@ const VersionCard: React.FC = () => {
                   <span>{remoteVersion}</span>
                 )}
                 {hasUpdate === true && (
-                  <IoAlertCircle className='text-warning-500' title='有新版本可用' />
+                  <IoAlertCircle className='text-warning-500' title={t('webui.dashboard.new_version_available')} />
                 )}
                 {hasUpdate === false && (
-                  <IoCheckmarkCircle className='text-success-500' title='已是最新版本' />
+                  <IoCheckmarkCircle className='text-success-500' title={t('webui.dashboard.up_to_date')} />
                 )}
               </span>
             </div>
@@ -321,14 +323,14 @@ const VersionCard: React.FC = () => {
         {showUpdateDialog && (
           <div className='mt-3 p-3 rounded-lg bg-default-100/50 border border-default-200'>
             <p className='text-sm text-default-600 mb-2'>
-              检测到新版本 <span className='font-mono font-semibold text-primary-500'>{remoteVersion}</span>，是否进行更新？
+              {t('webui.dashboard.update_prompt', remoteVersion)}
             </p>
             <div className='flex gap-2 justify-end'>
               <Button size='sm' variant='flat' onPress={() => setShowUpdateDialog(false)}>
-                取消
+                {t('webui.dashboard.cancel')}
               </Button>
               <Button size='sm' color='primary' onPress={performUpdate}>
-                确定更新
+                {t('webui.dashboard.confirm_update')}
               </Button>
             </div>
           </div>
@@ -339,11 +341,12 @@ const VersionCard: React.FC = () => {
 };
 
 const DashboardIndexPage: React.FC = () => {
+  const { t } = useI18n();
   const [archInfo, setArchInfo] = useLocalStorage<string | undefined>('napcat_arch_info_cache', undefined);
 
   return (
     <>
-      <title>基础信息 - MorningCat WebUI</title>
+      <title>{t('webui.dashboard.title')}</title>
       <section className='w-full p-2 md:p-4 md:max-w-[1000px] mx-auto overflow-hidden'>
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch'>
           <QQInfo />
@@ -354,7 +357,7 @@ const DashboardIndexPage: React.FC = () => {
         </div>
         <div className='w-full text-right mt-4'>
           <p className='text-sm text-default-400 italic'>
-            WebUI改的NapCat的设计，有能力请支持原作者
+            {t('webui.dashboard.credit')}
           </p>
         </div>
       </section>

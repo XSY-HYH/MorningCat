@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Logging;
 using MorningCat.Commands;
 using MorningCat.Config;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -32,18 +33,18 @@ namespace MorningCat.Modules
 
         public async Task Init()
         {
-            Log.Info("系统模块初始化中...");
+            Log.Info(I18nManager.S("system_module.initializing"));
 
             if (_mdc == null || _commandRegistry == null || _exitCallback == null || _restartCallback == null)
             {
-                Log.Error("依赖注入不完整，无法初始化系统模块");
+                Log.Error(I18nManager.S("system_module.di_incomplete"));
                 return;
             }
 
             RegisterStopCommand();
             RegisterRestartCommand();
 
-            Log.Info("系统模块初始化完成");
+            Log.Info(I18nManager.S("system_module.initialized"));
             await Task.CompletedTask;
         }
 
@@ -51,8 +52,8 @@ namespace MorningCat.Modules
         {
             var success = _commandRegistry.RegisterCommand(
                 "stop",
-                "停止机器人",
-                "@机器人 stop 停止机器人运行",
+                I18nManager.S("system_module.desc_stop"),
+                I18nManager.S("system_module.help_stop"),
                 new List<CommandParameter>(),
                 HandleStopCommand,
                 "SystemModule",
@@ -63,11 +64,11 @@ namespace MorningCat.Modules
 
             if (success)
             {
-                Log.Info("stop命令注册成功");
+                Log.Info(I18nManager.S("system_module.stop_registered"));
             }
             else
             {
-                Log.Error("stop命令注册失败");
+                Log.Error(I18nManager.S("system_module.stop_register_failed"));
             }
         }
 
@@ -75,8 +76,8 @@ namespace MorningCat.Modules
         {
             var success = _commandRegistry.RegisterCommand(
                 "restart",
-                "重启机器人",
-                "@机器人 restart 重启机器人",
+                I18nManager.S("system_module.desc_restart"),
+                I18nManager.S("system_module.help_restart"),
                 new List<CommandParameter>(),
                 HandleRestartCommand,
                 "SystemModule",
@@ -87,11 +88,11 @@ namespace MorningCat.Modules
 
             if (success)
             {
-                Log.Info("restart命令注册成功");
+                Log.Info(I18nManager.S("system_module.restart_registered"));
             }
             else
             {
-                Log.Error("restart命令注册失败");
+                Log.Error(I18nManager.S("system_module.restart_register_failed"));
             }
         }
 
@@ -99,9 +100,9 @@ namespace MorningCat.Modules
         {
             var message = context.Message;
 
-            await SendMessageAsync(message, "机器人正在停止...");
+            await SendMessageAsync(message, I18nManager.S("system_module.stopping"));
 
-            Log.Info($"收到停止命令，来自用户: {message.SenderId}");
+            Log.Info(I18nManager.S("system_module.stop_received", message.SenderId));
 
             _ = Task.Run(async () =>
             {
@@ -114,9 +115,9 @@ namespace MorningCat.Modules
         {
             var message = context.Message;
 
-            await SendMessageAsync(message, "机器人正在重启...");
+            await SendMessageAsync(message, I18nManager.S("system_module.restarting"));
 
-            Log.Info($"收到重启命令，来自用户: {message.SenderId}");
+            Log.Info(I18nManager.S("system_module.restart_received", message.SenderId));
 
             _ = Task.Run(async () =>
             {
@@ -137,10 +138,10 @@ namespace MorningCat.Modules
 
         public async Task Exit()
         {
-            Log.Info("系统模块正在清理...");
+            Log.Info(I18nManager.S("system_module.cleaning"));
             _commandRegistry?.UnregisterCommand("stop");
             _commandRegistry?.UnregisterCommand("restart");
-            Log.Info("系统模块清理完成");
+            Log.Info(I18nManager.S("system_module.cleaned"));
             await Task.CompletedTask;
         }
     }

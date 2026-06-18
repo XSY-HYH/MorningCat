@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Logging;
 using MorningCat.Config;
+using MorningCat.I18n;
 
 namespace MorningCat.Security
 {
@@ -33,7 +34,7 @@ namespace MorningCat.Security
             try
             {
                 Log.Name("PluginSignatureVerifier");
-                Log.Info("正在拉取插件签名公钥...");
+                Log.Info(I18nManager.S("security.fetching_public_key"));
 
                 var handler = new HttpClientHandler
                 {
@@ -61,21 +62,21 @@ namespace MorningCat.Security
                             {
                                 cfg.PluginSignaturePublicKey = newKey;
                             });
-                            Log.Info("插件签名公钥已更新并保存");
+                            Log.Info(I18nManager.S("security.public_key_updated"));
                         }
                         else
                         {
-                            Log.Debug("插件签名公钥未变化");
+                            Log.Debug(I18nManager.S("security.public_key_unchanged"));
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Warning($"拉取插件签名公钥失败: {ex.Message}");
+                Log.Warning(I18nManager.S("security.fetch_public_key_failed", ex.Message));
                 if (!string.IsNullOrEmpty(_publicKey))
                 {
-                    Log.Info("将使用本地缓存的公钥");
+                    Log.Info(I18nManager.S("security.using_cached_public_key"));
                 }
             }
         }
@@ -84,19 +85,19 @@ namespace MorningCat.Security
         {
             if (_testMode)
             {
-                Log.Debug($"[TestMode] 跳过签名验证: {Path.GetFileName(dllPath)}");
+                Log.Debug(I18nManager.S("security.testmode_skip_verify", Path.GetFileName(dllPath)));
                 return true;
             }
 
             if (string.IsNullOrEmpty(_publicKey))
             {
-                Log.Warning("未配置插件签名公钥，跳过签名验证");
+                Log.Warning(I18nManager.S("security.no_public_key"));
                 return true;
             }
 
             if (!File.Exists(dllPath))
             {
-                Log.Warning($"DLL文件不存在: {dllPath}");
+                Log.Warning(I18nManager.S("security.dll_not_found", dllPath));
                 return false;
             }
 
@@ -106,7 +107,7 @@ namespace MorningCat.Security
 
                 if (fileBytes.Length < 4)
                 {
-                    Log.Warning($"插件 {Path.GetFileName(dllPath)} 未包含签名数据");
+                    Log.Warning(I18nManager.S("security.no_signature_data", Path.GetFileName(dllPath)));
                     return false;
                 }
 
@@ -116,7 +117,7 @@ namespace MorningCat.Security
 
                 if (sigLength <= 0 || sigLength > fileBytes.Length - 4)
                 {
-                    Log.Warning($"插件 {Path.GetFileName(dllPath)} 签名数据无效");
+                    Log.Warning(I18nManager.S("security.invalid_signature_data", Path.GetFileName(dllPath)));
                     return false;
                 }
 
@@ -141,18 +142,18 @@ namespace MorningCat.Security
 
                 if (verified)
                 {
-                    Log.Debug($"插件签名验证通过: {Path.GetFileName(dllPath)}");
+                    Log.Debug(I18nManager.S("security.signature_verified", Path.GetFileName(dllPath)));
                 }
                 else
                 {
-                    Log.Warning($"插件签名验证失败: {Path.GetFileName(dllPath)}");
+                    Log.Warning(I18nManager.S("security.signature_failed", Path.GetFileName(dllPath)));
                 }
 
                 return verified;
             }
             catch (Exception ex)
             {
-                Log.Error($"验证插件签名时出错: {Path.GetFileName(dllPath)} - {ex.Message}");
+                Log.Error(I18nManager.S("security.verify_error", Path.GetFileName(dllPath), ex.Message));
                 return false;
             }
         }

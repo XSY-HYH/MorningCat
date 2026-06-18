@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import logo from '@/assets/images/logo.png';
 
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 import HoverEffectCard from '@/components/effect_card';
 import { title } from '@/components/primitives';
@@ -23,6 +24,7 @@ export default function WebLoginPage () {
   const urlSearchParams = new URLSearchParams(window.location.search);
   const token = urlSearchParams.get('token');
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>(token || '');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -95,11 +97,11 @@ export default function WebLoginPage () {
 
   const onSubmit = async () => {
     if (!username) {
-      toast.error('请输入用户名');
+      toast.error(t('webui.login.username_required'));
       return;
     }
     if (!password) {
-      toast.error('请输入密码');
+      toast.error(t('webui.login.password_required'));
       return;
     }
     setIsLoading(true);
@@ -144,7 +146,7 @@ export default function WebLoginPage () {
 
   return (
     <>
-      <title>WebUI登录 - MorningCat WebUI</title>
+      <title>{t('webui.login.title')}</title>
       <PureLayout>
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -172,7 +174,7 @@ export default function WebLoginPage () {
             <CardBody className='flex gap-5 py-5 px-5 md:px-10'>
               {isPasskeyLoading && (
                 <div className='text-center text-small text-default-600 dark:text-default-400 px-2'>
-                  正在检查Passkey...
+                  {t('webui.login.checking_passkey')}
                 </div>
               )}
               <form
@@ -209,8 +211,8 @@ export default function WebLoginPage () {
                     ],
                   }}
                   isDisabled={isLoading || isPasskeyLoading}
-                  label='用户名'
-                  placeholder='请输入用户名'
+                  label={t('webui.login.username')}
+                  placeholder={t('webui.login.username_placeholder')}
                   radius='lg'
                   size='lg'
                   startContent={
@@ -247,8 +249,8 @@ export default function WebLoginPage () {
                     ],
                   }}
                   isDisabled={isLoading || isPasskeyLoading}
-                  label='密码'
-                  placeholder='请输入密码'
+                  label={t('webui.login.password')}
+                  placeholder={t('webui.login.password_placeholder')}
                   radius='lg'
                   size='lg'
                   startContent={
@@ -278,7 +280,7 @@ export default function WebLoginPage () {
                     src={logo}
                   />
                 )}
-                登录
+                {t('webui.login.submit')}
               </Button>
             </CardBody>
           </HoverEffectCard>

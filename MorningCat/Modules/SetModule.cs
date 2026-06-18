@@ -6,6 +6,7 @@ using Logging;
 using ModuleManagerLib;
 using MorningCat.Commands;
 using MorningCat.Config;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -35,17 +36,17 @@ namespace MorningCat.Modules
 
         public async Task Init()
         {
-            Log.Info("设置模块初始化中...");
+            Log.Info(I18nManager.S("set_module.initializing"));
 
             if (_mdc == null || _commandRegistry == null || _configManager == null || _pluginConfigManager == null || _moduleManager == null)
             {
-                Log.Error("依赖注入不完整，无法初始化设置模块");
+                Log.Error(I18nManager.S("set_module.di_incomplete"));
                 return;
             }
 
             RegisterSetCommand();
 
-            Log.Info("设置模块初始化完成");
+            Log.Info(I18nManager.S("set_module.initialized"));
             await Task.CompletedTask;
         }
 
@@ -56,35 +57,35 @@ namespace MorningCat.Modules
                 new CommandParameter
                 {
                     Name = "type",
-                    Description = "类型: system/plugin",
+                    Description = I18nManager.S("set_module.param_type"),
                     IsRequired = true,
                     Type = ParameterType.String
                 },
                 new CommandParameter
                 {
                     Name = "target",
-                    Description = "目标（plugin时为插件类名）",
+                    Description = I18nManager.S("set_module.param_target"),
                     IsRequired = false,
                     Type = ParameterType.String
                 },
                 new CommandParameter
                 {
                     Name = "key",
-                    Description = "键路径",
+                    Description = I18nManager.S("set_module.param_key"),
                     IsRequired = false,
                     Type = ParameterType.String
                 },
                 new CommandParameter
                 {
                     Name = "to",
-                    Description = "to关键字",
+                    Description = I18nManager.S("set_module.param_to"),
                     IsRequired = false,
                     Type = ParameterType.String
                 },
                 new CommandParameter
                 {
                     Name = "value",
-                    Description = "值",
+                    Description = I18nManager.S("set_module.param_value"),
                     IsRequired = false,
                     Type = ParameterType.String
                 }
@@ -92,8 +93,8 @@ namespace MorningCat.Modules
 
             var success = _commandRegistry.RegisterCommand(
                 "set",
-                "设置管理",
-                "@机器人 set system list 查看所有系统配置（仅私聊）\n@机器人 set system <键路径> 查看系统配置（仅私聊）\n@机器人 set system <键路径> to <值> 设置系统配置\n@机器人 set plugin <插件名> list 查看插件所有配置（仅私聊）\n@机器人 set plugin <插件名> <键路径> 查看插件配置（仅私聊）\n@机器人 set plugin <插件名> <键路径> to <值> 设置插件配置",
+                I18nManager.S("set_module.desc"),
+                I18nManager.S("set_module.help_text"),
                 subParams,
                 HandleSetCommand,
                 "SetModule",
@@ -104,11 +105,11 @@ namespace MorningCat.Modules
 
             if (success)
             {
-                Log.Info("set命令注册成功");
+                Log.Info(I18nManager.S("set_module.registered"));
             }
             else
             {
-                Log.Error("set命令注册失败");
+                Log.Error(I18nManager.S("set_module.register_failed"));
             }
         }
 
@@ -119,7 +120,7 @@ namespace MorningCat.Modules
 
             if (!parameters.TryGetValue("type", out var type) || string.IsNullOrEmpty(type))
             {
-                await SendMessageAsync(message, "请指定类型\n用法: /set system/plugin ...");
+                await SendMessageAsync(message, I18nManager.S("set_module.specify_type"));
                 return;
             }
 
@@ -134,7 +135,7 @@ namespace MorningCat.Modules
                     await HandlePluginSetAsync(message, parameters);
                     break;
                 default:
-                    await SendMessageAsync(message, $"未知类型: {type}\n可用类型: system, plugin");
+                    await SendMessageAsync(message, I18nManager.S("set_module.unknown_type", type));
                     break;
             }
         }
@@ -149,7 +150,7 @@ namespace MorningCat.Modules
 
             if (string.IsNullOrEmpty(keyPath))
             {
-                await SendMessageAsync(message, "请指定键路径\n用法: /set system <键路径> [to <值>]\n用法: /set system list");
+                await SendMessageAsync(message, I18nManager.S("set_module.specify_key"));
                 return;
             }
 
@@ -157,7 +158,7 @@ namespace MorningCat.Modules
             {
                 if (message.MessageType == UnifiedMessageType.Group)
                 {
-                    await SendMessageAsync(message, "系统禁止在群聊显示系统配置");
+                    await SendMessageAsync(message, I18nManager.S("set_module.group_forbidden"));
                     return;
                 }
                 await ListSystemConfigAsync(message);
@@ -182,7 +183,7 @@ namespace MorningCat.Modules
             {
                 if (message.MessageType == UnifiedMessageType.Group)
                 {
-                    await SendMessageAsync(message, "系统禁止在群聊显示系统配置");
+                    await SendMessageAsync(message, I18nManager.S("set_module.group_forbidden"));
                     return;
                 }
                 await GetSystemValueAsync(message, keyPath);
@@ -195,16 +196,16 @@ namespace MorningCat.Modules
             {
                 var config = _configManager.GetConfig();
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine("系统配置列表:");
+                sb.AppendLine(I18nManager.S("set_module.system_config_list"));
                 sb.AppendLine();
-                sb.AppendLine($"nap_cat_server_url: {config.NapCatServerUrl}");
-                sb.AppendLine($"nap_cat_token: {(string.IsNullOrEmpty(config.NapCatToken) ? "(未设置)" : "******")}");
+                sb.AppendLine($"onebot_server_url: {config.OneBotServerUrl}");
+                sb.AppendLine($"onebot_token: {(string.IsNullOrEmpty(config.OneBotToken) ? I18nManager.S("set_module.config_not_set") : "******")}");
                 sb.AppendLine($"modules_directory: {config.ModulesDirectory}");
                 sb.AppendLine($"auto_load_modules: {config.AutoLoadModules}");
                 sb.AppendLine($"owner_qq: {config.OwnerQQ}");
-                sb.AppendLine($"blocked_users: {(config.BlockedUsers != null && config.BlockedUsers.Count > 0 ? string.Join(", ", config.BlockedUsers) : "(无)")}");
-                sb.AppendLine($"blocked_groups: {(config.BlockedGroups != null && config.BlockedGroups.Count > 0 ? string.Join(", ", config.BlockedGroups) : "(无)")}");
-                sb.AppendLine($"plugin_store_url: {(string.IsNullOrEmpty(config.PluginStoreUrl) ? "(默认)" : config.PluginStoreUrl)}");
+                sb.AppendLine($"blocked_users: {(config.BlockedUsers != null && config.BlockedUsers.Count > 0 ? string.Join(", ", config.BlockedUsers) : I18nManager.S("set_module.config_none"))}");
+                sb.AppendLine($"blocked_groups: {(config.BlockedGroups != null && config.BlockedGroups.Count > 0 ? string.Join(", ", config.BlockedGroups) : I18nManager.S("set_module.config_none"))}");
+                sb.AppendLine($"plugin_store_url: {(string.IsNullOrEmpty(config.PluginStoreUrl) ? I18nManager.S("set_module.config_default") : config.PluginStoreUrl)}");
                 sb.AppendLine($"webui.enabled: {config.WebUI.Enabled}");
                 sb.AppendLine($"webui.listen_address: {config.WebUI.ListenAddress}");
                 sb.AppendLine($"webui.port: {config.WebUI.Port}");
@@ -214,7 +215,7 @@ namespace MorningCat.Modules
             }
             catch (Exception ex)
             {
-                await SendMessageAsync(message, $"获取系统配置失败:\n{ex.Message}");
+                await SendMessageAsync(message, I18nManager.S("set_module.get_system_config_failed", ex.Message));
             }
         }
 
@@ -234,22 +235,22 @@ namespace MorningCat.Modules
                     }
                     else if (value is System.Collections.IList emptyList)
                     {
-                        displayValue = "(空列表)";
+                        displayValue = I18nManager.S("set_module.config_none");
                     }
                     else
                     {
                         displayValue = value.ToString();
                     }
-                    await SendMessageAsync(message, $"系统配置 {keyPath}:\n{displayValue}");
+                    await SendMessageAsync(message, I18nManager.S("set_module.system_config_value", keyPath, displayValue));
                 }
                 else
                 {
-                    await SendMessageAsync(message, $"键路径 {keyPath} 不存在或值为空");
+                    await SendMessageAsync(message, I18nManager.S("set_module.key_not_exist", keyPath));
                 }
             }
             catch (Exception ex)
             {
-                await SendMessageAsync(message, $"获取系统配置失败:\n{ex.Message}");
+                await SendMessageAsync(message, I18nManager.S("set_module.get_system_config_failed", ex.Message));
             }
         }
 
@@ -261,12 +262,12 @@ namespace MorningCat.Modules
                 SetNestedValue(config, keyPath, value);
                 _configManager.SaveConfig();
 
-                await SendMessageAsync(message, $"已设置系统配置 {keyPath} = {value}");
-                Log.Info($"系统配置已更新: {keyPath} = {value}");
+                await SendMessageAsync(message, I18nManager.S("set_module.system_config_set", keyPath, value));
+                Log.Info(I18nManager.S("config.updated", keyPath, value));
             }
             catch (Exception ex)
             {
-                await SendMessageAsync(message, $"设置系统配置失败:\n{ex.Message}");
+                await SendMessageAsync(message, I18nManager.S("set_module.set_system_failed", ex.Message));
             }
         }
 
@@ -274,7 +275,7 @@ namespace MorningCat.Modules
         {
             if (!parameters.TryGetValue("target", out var pluginName) || string.IsNullOrEmpty(pluginName))
             {
-                await SendMessageAsync(message, "请指定插件名\n用法: /set plugin <插件名> list\n用法: /set plugin <插件名> <键路径> [to <值>]");
+                await SendMessageAsync(message, I18nManager.S("set_module.specify_plugin"));
                 return;
             }
 
@@ -283,13 +284,13 @@ namespace MorningCat.Modules
 
             if (!moduleExists)
             {
-                await SendMessageAsync(message, $"插件 {pluginName} 不存在");
+                await SendMessageAsync(message, I18nManager.S("set_module.plugin_not_exist", pluginName));
                 return;
             }
 
             if (!parameters.TryGetValue("key", out var keyPath) || string.IsNullOrEmpty(keyPath))
             {
-                await SendMessageAsync(message, "请指定键路径或使用 list\n用法: /set plugin <插件名> list\n用法: /set plugin <插件名> <键路径> [to <值>]");
+                await SendMessageAsync(message, I18nManager.S("set_module.specify_plugin_key"));
                 return;
             }
 
@@ -297,7 +298,7 @@ namespace MorningCat.Modules
             {
                 if (message.MessageType == UnifiedMessageType.Group)
                 {
-                    await SendMessageAsync(message, "系统禁止在群聊显示插件配置");
+                    await SendMessageAsync(message, I18nManager.S("set_module.plugin_group_forbidden"));
                     return;
                 }
                 await ListPluginConfigAsync(message, pluginName);
@@ -322,7 +323,7 @@ namespace MorningCat.Modules
             {
                 if (message.MessageType == UnifiedMessageType.Group)
                 {
-                    await SendMessageAsync(message, "系统禁止在群聊显示插件配置");
+                    await SendMessageAsync(message, I18nManager.S("set_module.plugin_group_forbidden"));
                     return;
                 }
                 await GetPluginValueAsync(message, pluginName, keyPath);
@@ -337,17 +338,17 @@ namespace MorningCat.Modules
 
                 if (config == null || config.Count == 0)
                 {
-                    await SendMessageAsync(message, $"插件 {pluginName} 没有任何配置");
+                    await SendMessageAsync(message, I18nManager.S("set_module.plugin_no_config", pluginName));
                     return;
                 }
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"插件 {pluginName} 配置列表:");
+                sb.AppendLine(I18nManager.S("set_module.plugin_config_list", pluginName));
                 sb.AppendLine();
 
                 foreach (var kvp in config)
                 {
-                    var valueStr = kvp.Value?.ToString() ?? "(空)";
+                    var valueStr = kvp.Value?.ToString() ?? I18nManager.S("set_module.plugin_config_empty");
                     sb.AppendLine($"{kvp.Key}: {valueStr}");
                 }
 
@@ -355,7 +356,7 @@ namespace MorningCat.Modules
             }
             catch (Exception ex)
             {
-                await SendMessageAsync(message, $"获取插件配置失败:\n{ex.Message}");
+                await SendMessageAsync(message, I18nManager.S("set_module.get_plugin_config_failed", ex.Message));
             }
         }
 
@@ -367,16 +368,16 @@ namespace MorningCat.Modules
 
                 if (value != null)
                 {
-                    await SendMessageAsync(message, $"插件 {pluginName} 配置 {keyPath}:\n{value}");
+                    await SendMessageAsync(message, I18nManager.S("set_module.plugin_config_value", pluginName, keyPath, value));
                 }
                 else
                 {
-                    await SendMessageAsync(message, $"插件 {pluginName} 的键路径 {keyPath} 不存在或值为空");
+                    await SendMessageAsync(message, I18nManager.S("set_module.plugin_key_not_exist", pluginName, keyPath));
                 }
             }
             catch (Exception ex)
             {
-                await SendMessageAsync(message, $"获取插件配置失败:\n{ex.Message}");
+                await SendMessageAsync(message, I18nManager.S("set_module.get_plugin_config_failed", ex.Message));
             }
         }
 
@@ -386,12 +387,12 @@ namespace MorningCat.Modules
             {
                 await _pluginConfigManager.SetValueAsync(pluginName, "config", keyPath, value);
 
-                await SendMessageAsync(message, $"已设置插件 {pluginName} 配置 {keyPath} = {value}");
-                Log.Info($"插件配置已更新: {pluginName}.{keyPath} = {value}");
+                await SendMessageAsync(message, I18nManager.S("set_module.plugin_config_set", pluginName, keyPath, value));
+                Log.Info(I18nManager.S("config.plugin_updated", pluginName, keyPath, value));
             }
             catch (Exception ex)
             {
-                await SendMessageAsync(message, $"设置插件配置失败:\n{ex.Message}");
+                await SendMessageAsync(message, I18nManager.S("set_module.set_plugin_failed", ex.Message));
             }
         }
 
@@ -432,13 +433,13 @@ namespace MorningCat.Modules
 
                 if (property == null)
                 {
-                    throw new Exception($"属性 {keys[i]} 不存在");
+                    throw new Exception(I18nManager.S("set_module.property_not_exist", keys[i]));
                 }
 
                 current = property.GetValue(current);
                 if (current == null)
                 {
-                    throw new Exception($"属性 {keys[i]} 的值为空");
+                    throw new Exception(I18nManager.S("set_module.property_null", keys[i]));
                 }
             }
 
@@ -448,12 +449,12 @@ namespace MorningCat.Modules
 
             if (finalProperty == null)
             {
-                throw new Exception($"属性 {finalKey} 不存在");
+                throw new Exception(I18nManager.S("set_module.property_not_exist", finalKey));
             }
 
             if (!finalProperty.CanWrite)
             {
-                throw new Exception($"属性 {finalKey} 是只读的");
+                throw new Exception(I18nManager.S("set_module.property_readonly", finalKey));
             }
 
             var propertyType = finalProperty.PropertyType;
@@ -476,7 +477,7 @@ namespace MorningCat.Modules
                 }
                 else
                 {
-                    throw new Exception($"无法将 \"{value}\" 转换为 long 类型");
+                    throw new Exception(I18nManager.S("set_module.convert_failed", value, "long"));
                 }
             }
             else if (propertyType == typeof(List<string>))
@@ -559,16 +560,16 @@ namespace MorningCat.Modules
             catch (FormatException)
             {
                 var typeName = targetType.Name;
-                return (false, null, $"无法将 \"{value}\" 转换为 {typeName} 类型");
+                return (false, null, I18nManager.S("set_module.convert_failed", value, typeName));
             }
             catch (OverflowException)
             {
                 var typeName = targetType.Name;
-                return (false, null, $"值 \"{value}\" 超出了 {typeName} 类型的范围");
+                return (false, null, I18nManager.S("set_module.convert_failed", value, typeName));
             }
             catch (Exception ex)
             {
-                return (false, null, $"类型转换失败: {ex.Message}");
+                return (false, null, I18nManager.S("set_module.convert_failed", value, ex.Message));
             }
         }
 

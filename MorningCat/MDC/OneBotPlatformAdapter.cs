@@ -6,13 +6,14 @@ using OneBotLib;
 using OneBotLib.Events;
 using OneBotLib.Models;
 using MorningCat.Config;
+using MorningCat.I18n;
 using MorningCat.PlatformAbstraction;
 using PlatformSendMessageResult = MorningCat.PlatformAbstraction.SendMessageResult;
 
 namespace MorningCat.MDC
 {
     /// <summary>
-    /// OneBot平台适配器 - 封装OneBotClient，对接QQ(NapCat/LLOneBot等)
+    /// OneBot平台适配器 - 封装OneBotClient，对接QQ(NapCat/LLOneBot/Lagrange等)
     /// </summary>
     public class OneBotPlatformAdapter : IPlatformAdapter
     {
@@ -70,24 +71,24 @@ namespace MorningCat.MDC
                 SetConnectionState(PlatformConnectionState.Connecting);
                 var config = _configManager.GetConfig();
 
-                bool connectSuccess = _client.ConnectSync(config.NapCatServerUrl, config.NapCatToken, 10);
+                bool connectSuccess = _client.ConnectSync(config.OneBotServerUrl, config.OneBotToken, 10);
                 if (connectSuccess)
                 {
                     SetConnectionState(PlatformConnectionState.Connected);
-                    Log.Info("[OneBot] WebSocket连接成功，等待认证...");
+                    Log.Info(I18nManager.S("onebot.ws_connected"));
                     return true;
                 }
                 else
                 {
                     SetConnectionState(PlatformConnectionState.Disconnected);
-                    Log.Error("[OneBot] 连接失败");
+                    Log.Error(I18nManager.S("onebot.connect_failed"));
                     return false;
                 }
             }
             catch (Exception ex)
             {
                 SetConnectionState(PlatformConnectionState.Disconnected);
-                Log.Error($"[OneBot] 连接异常: {ex.Message}");
+                Log.Error(I18nManager.S("onebot.connect_error", ex.Message));
                 return false;
             }
         }
@@ -103,7 +104,7 @@ namespace MorningCat.MDC
             }
             catch (Exception ex)
             {
-                Log.Error($"[OneBot] 关闭连接异常: {ex.Message}");
+                Log.Error(I18nManager.S("onebot.close_error", ex.Message));
             }
         }
 
@@ -121,7 +122,7 @@ namespace MorningCat.MDC
             }
             catch (Exception ex)
             {
-                Log.Error($"[OneBot] 重连异常: {ex.Message}");
+                Log.Error(I18nManager.S("onebot.reconnect_error", ex.Message));
                 return false;
             }
         }
@@ -293,7 +294,7 @@ namespace MorningCat.MDC
 
         private void OnClientHeartbeat(object? sender, HeartbeatEventArgs e)
         {
-            Log.Debug($"[OneBot] 心跳，间隔: {e.Interval}ms");
+            Log.Debug(I18nManager.S("onebot.heartbeat", e.Interval));
         }
 
         private void OnClientConnectionStateChanged(object? sender, ConnectionStateChangedEventArgs e)

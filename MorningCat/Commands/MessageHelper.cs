@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Logging;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -122,7 +123,7 @@ namespace MorningCat.Commands
             }
             catch (System.Exception ex)
             {
-                Log.Error($"发送消息失败: {ex.Message}");
+                Log.Error(I18nManager.S("message.send_failed", ex.Message));
             }
         }
 
@@ -137,7 +138,7 @@ namespace MorningCat.Commands
             }
             catch (System.Exception ex)
             {
-                Log.Error($"发送消息失败: {ex.Message}");
+                Log.Error(I18nManager.S("message.send_failed", ex.Message));
             }
         }
     }

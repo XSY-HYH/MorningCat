@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 interface DatabaseEntry {
   key: string;
@@ -45,6 +46,7 @@ interface DatabaseDetail {
 }
 
 export default function DatabasePage () {
+  const { t } = useI18n();
   const [databases, setDatabases] = useState<DatabaseEntry[]>([]);
   const [selectedDb, setSelectedDb] = useState<string | null>(null);
   const [detail, setDetail] = useState<DatabaseDetail | null>(null);
@@ -81,7 +83,7 @@ export default function DatabasePage () {
         setDatabases(result.data || []);
       }
     } catch {
-      toast.error('加载数据库列表失败');
+      toast.error(t('webui.database.load_list_failed'));
     } finally {
       setLoading(false);
     }
@@ -101,7 +103,7 @@ export default function DatabasePage () {
         }
       }
     } catch {
-      toast.error('加载数据库详情失败');
+      toast.error(t('webui.database.load_detail_failed'));
     } finally {
       setDetailLoading(false);
     }
@@ -131,11 +133,11 @@ export default function DatabasePage () {
       if (result.code === 0) {
         setTableData(result.data || []);
       } else {
-        toast.error(result.message || '查询失败');
+        toast.error(result.message || t('webui.database.query_failed'));
         setTableData([]);
       }
     } catch {
-      toast.error('查询表数据失败');
+      toast.error(t('webui.database.query_table_failed'));
       setTableData([]);
     } finally {
       setTableLoading(false);
@@ -164,19 +166,19 @@ export default function DatabasePage () {
       if (result.code === 0) {
         if (isQuery) {
           setSqlResult(result.data || []);
-          toast.success(`查询返回 ${(result.data || []).length} 行`);
+          toast.success(t('webui.database.query_rows', (result.data || []).length));
         } else {
           setSqlAffected(result.data?.affected ?? 0);
-          toast.success(`影响 ${result.data?.affected ?? 0} 行`);
+          toast.success(t('webui.database.affected_rows', result.data?.affected ?? 0));
           if (detail) {
             loadDetail(selectedDb);
           }
         }
       } else {
-        toast.error(result.message || '执行失败');
+        toast.error(result.message || t('webui.database.execute_error'));
       }
     } catch {
-      toast.error('执行SQL失败');
+      toast.error(t('webui.database.execute_failed'));
     } finally {
       setSqlRunning(false);
     }
@@ -201,17 +203,17 @@ export default function DatabasePage () {
 
   return (
     <section className='w-full max-w-[1200px] mx-auto py-4 md:py-8 px-2 md:px-6 relative'>
-      <title>数据库管理 - MorningCat WebUI</title>
+      <title>{t('webui.database.title')}</title>
 
       <div className='flex flex-col md:flex-row gap-4'>
         <div className='w-full md:w-64 shrink-0'>
           <Card className={`backdrop-blur-sm border shadow-sm rounded-2xl ${hasBackground ? 'bg-white/20 dark:bg-black/10 border-white/40 dark:border-white/10' : 'bg-white/60 dark:bg-black/40 border-white/40 dark:border-white/10'}`}>
             <CardBody className='p-2'>
-              <h3 className='text-sm font-semibold px-2 py-1 text-default-500'>数据库列表</h3>
+              <h3 className='text-sm font-semibold px-2 py-1 text-default-500'>{t('webui.database.list')}</h3>
               {databases.length > 0 ? (
                 <ScrollShadow className='h-[500px]'>
                   <Listbox
-                    aria-label='数据库列表'
+                    aria-label={t('webui.database.list')}
                     selectionMode='single'
                     selectedKeys={selectedDb ? new Set([selectedDb]) : new Set()}
                     onSelectionChange={(keys) => {
@@ -230,7 +232,7 @@ export default function DatabasePage () {
                   </Listbox>
                 </ScrollShadow>
               ) : (
-                <div className='p-4 text-center text-default-400 text-sm'>暂无数据库</div>
+                <div className='p-4 text-center text-default-400 text-sm'>{t('webui.database.empty')}</div>
               )}
             </CardBody>
           </Card>
@@ -251,15 +253,15 @@ export default function DatabasePage () {
                       <div className='flex items-center gap-2 mt-1'>
                         <Chip size='sm' variant='flat' color='primary'>{detail.databaseType}</Chip>
                         <span className='text-xs text-default-400'>{formatFileSize(detail.fileSize)}</span>
-                        <span className='text-xs text-default-400'>{detail.tables.length} 个表</span>
+                        <span className='text-xs text-default-400'>{t('webui.database.tables_count', detail.tables.length)}</span>
                       </div>
                     </div>
                     <Button color='primary' size='sm' onPress={() => { setSqlInput(''); setSqlResult(null); setSqlAffected(null); setSqlModalOpen(true); }}>
-                      执行SQL
+                      {t('webui.database.execute_sql')}
                     </Button>
                   </div>
                   <Divider className='mb-3' />
-                  <div className='text-xs text-default-400 mb-1'>路径: {detail.databasePath}</div>
+                  <div className='text-xs text-default-400 mb-1'>{t('webui.database.path', detail.databasePath)}</div>
                 </CardBody>
               </Card>
 
@@ -277,7 +279,7 @@ export default function DatabasePage () {
 
                   {selectedTable && detail.tableColumns[selectedTable] && (
                     <div className='mt-3'>
-                      <h4 className='text-sm font-medium text-default-500 mb-2'>列信息</h4>
+                      <h4 className='text-sm font-medium text-default-500 mb-2'>{t('webui.database.columns')}</h4>
                       <div className='flex flex-wrap gap-2 mb-3'>
                         {detail.tableColumns[selectedTable].map((col) => (
                           <Chip
@@ -292,14 +294,14 @@ export default function DatabasePage () {
                         ))}
                       </div>
                       <Divider className='mb-3' />
-                      <h4 className='text-sm font-medium text-default-500 mb-2'>数据 (最多100行)</h4>
+                      <h4 className='text-sm font-medium text-default-500 mb-2'>{t('webui.database.data')}</h4>
                       {tableLoading ? (
                         <div className='flex items-center justify-center h-[100px]'>
                           <Spinner />
                         </div>
                       ) : tableData.length > 0 ? (
                         <ScrollShadow className='max-h-[400px]'>
-                          <Table aria-label='表数据' isCompact removeWrapper>
+                          <Table aria-label={t('webui.database.data')} isCompact removeWrapper>
                             <TableHeader>
                               {Object.keys(tableData[0]).map((col) => (
                                 <TableColumn key={col}>{col}</TableColumn>
@@ -319,7 +321,7 @@ export default function DatabasePage () {
                           </Table>
                         </ScrollShadow>
                       ) : (
-                        <div className='text-center text-default-400 text-sm py-4'>空表</div>
+                        <div className='text-center text-default-400 text-sm py-4'>{t('webui.database.empty_table')}</div>
                       )}
                     </div>
                   )}
@@ -329,7 +331,7 @@ export default function DatabasePage () {
           ) : (
             <Card className={`backdrop-blur-sm border shadow-sm rounded-2xl ${hasBackground ? 'bg-white/20 dark:bg-black/10 border-white/40 dark:border-white/10' : 'bg-white/60 dark:bg-black/40 border-white/40 dark:border-white/10'}`}>
               <CardBody className='flex items-center justify-center h-[300px]'>
-                <span className='text-default-400'>选择左侧数据库查看详情</span>
+                <span className='text-default-400'>{t('webui.database.select_hint')}</span>
               </CardBody>
             </Card>
           )}
@@ -338,19 +340,19 @@ export default function DatabasePage () {
 
       <Modal isOpen={sqlModalOpen} onClose={() => setSqlModalOpen(false)} size='3xl'>
         <ModalContent>
-          <ModalHeader>执行SQL - {detail?.pluginClassName || detail?.id}</ModalHeader>
+          <ModalHeader>{t('webui.database.sql_title', detail?.pluginClassName || detail?.id)}</ModalHeader>
           <ModalBody>
             <Textarea
               value={sqlInput}
               onValueChange={setSqlInput}
-              placeholder='输入SQL语句...'
+              placeholder={t('webui.database.sql_placeholder')}
               minRows={4}
               maxRows={8}
               className='font-mono'
             />
             {sqlResult !== null && sqlResult.length > 0 && (
               <ScrollShadow className='max-h-[300px]'>
-                <Table aria-label='查询结果' isCompact removeWrapper>
+                <Table aria-label={t('webui.database.query_result')} isCompact removeWrapper>
                   <TableHeader>
                     {Object.keys(sqlResult[0]).map((col) => (
                       <TableColumn key={col}>{col}</TableColumn>
@@ -371,12 +373,12 @@ export default function DatabasePage () {
               </ScrollShadow>
             )}
             {sqlAffected !== null && (
-              <div className='text-sm text-default-500'>影响 {sqlAffected} 行</div>
+              <div className='text-sm text-default-500'>{t('webui.database.affected_rows', sqlAffected)}</div>
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant='light' onPress={() => setSqlModalOpen(false)}>关闭</Button>
-            <Button color='primary' onPress={handleExecuteSql} isLoading={sqlRunning}>执行</Button>
+            <Button variant='light' onPress={() => setSqlModalOpen(false)}>{t('webui.database.close')}</Button>
+            <Button color='primary' onPress={handleExecuteSql} isLoading={sqlRunning}>{t('webui.database.execute')}</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

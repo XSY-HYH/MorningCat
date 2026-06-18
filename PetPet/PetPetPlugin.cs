@@ -6,34 +6,35 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using Logging;
-using ModuleManagerLib;
 using MorningCat.Commands;
 using MorningCat.Config;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
+using MorningCat.PluginAPI;
 using OneBotLib;
 using OneBotLib.MessageSegment;
 using OneBotLib.Models;
 
 namespace PetPet
 {
-    public class PetPetPlugin : ModuleBase
+    [PluginMetadata(
+        DisplayName = "摸摸头",
+        Author = "MorningCat",
+        Description = "摸摸别人的头！使用摸命令+@目标生成摸头GIF"
+    )]
+    public class PetPetPlugin
     {
         private CommandRegistry _commandRegistry = null!;
         private PluginConfigManager _configManager = null!;
         private MessageDistributionCore _mdc = null!;
-        private Action<string, string, string, string, string, string> _setMetadata = null!;
 
         // 创建支持忽略SSL验证的HttpClientHandler
         private static readonly HttpClientHandler _httpHandler = new HttpClientHandler
         {
-            // 忽略SSL证书验证错误（解决ERR_CERT_AUTHORITY_INVALID问题）
             ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
-            // 启用自动解压缩以提高性能
             AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
         };
 
-        // 使用自定义Handler创建HttpClient
         private static readonly HttpClient _httpClient = new HttpClient(_httpHandler)
         {
             Timeout = TimeSpan.FromSeconds(30)
@@ -47,46 +48,27 @@ namespace PetPet
 
         private PetPetConfig _config = new();
 
-        public Action<string, string, string, string, string, string> SetMetadataCallback
-        {
-            set => _setMetadata = value;
-        }
+        public CommandRegistry CommandRegistry { set => _commandRegistry = value; }
+        public PluginConfigManager ConfigManager { set => _configManager = value; }
+        public MessageDistributionCore MDC { set => _mdc = value; }
 
-        public CommandRegistry CommandRegistry
+        public async Task Init()
         {
-            get => _commandRegistry;
-            set => _commandRegistry = value;
-        }
-
-        public PluginConfigManager ConfigManager
-        {
-            get => _configManager;
-            set => _configManager = value;
-        }
-
-        public MessageDistributionCore MDC
-        {
-            get => _mdc;
-            set => _mdc = value;
-        }
-
-        public override async Task Init()
-        {
+            Log.Name("PetPet");
             await LoadConfigAsync();
 
+            // 加载图标到元数据
             var iconBase64 = LoadIconAsBase64();
-            _setMetadata?.Invoke(
-                "PetPetPlugin",
-                "摸摸头",
-                "MorningCat",
-                "1.0.0",
-                "摸摸别人的头！使用摸命令+@目标生成摸头GIF",
-                iconBase64 ?? ""
-            );
+            if (!string.IsNullOrEmpty(iconBase64))
+            {
+                var attr = GetType().GetCustomAttribute<PluginMetadataAttribute>();
+                if (attr != null)
+                    attr.IconBase64 = iconBase64;
+            }
 
             RegisterCommands();
 
-            Log.Info("[摸摸头] 插件已加载");
+            Log.Info("插件已加载");
         }
 
         private async Task LoadConfigAsync()
@@ -100,7 +82,7 @@ namespace PetPet
             }
             catch (Exception ex)
             {
-                Log.Warning($"[摸摸头] 加载配置失败，使用默认配置: {ex.Message}");
+                Log.Warning($"加载配置失败，使用默认配置: {ex.Message}");
                 _config = new PetPetConfig();
             }
         }
@@ -116,7 +98,7 @@ namespace PetPet
             }
             catch (Exception ex)
             {
-                Log.Warning($"[摸摸头] 保存配置失败: {ex.Message}");
+                Log.Warning($"保存配置失败: {ex.Message}");
             }
         }
 
@@ -124,7 +106,7 @@ namespace PetPet
         {
             if (_commandRegistry == null)
             {
-                Log.Warning("[摸摸头] CommandRegistry未注入，无法注册命令");
+                Log.Warning("CommandRegistry未注入，无法注册命令");
                 return;
             }
 
@@ -151,11 +133,11 @@ namespace PetPet
 
             if (success)
             {
-                Log.Info("[摸摸头] 命令注册成功");
+                Log.Info("命令注册成功");
             }
             else
             {
-                Log.Warning("[摸摸头] 命令注册失败");
+                Log.Warning("命令注册失败");
             }
         }
 
@@ -239,7 +221,7 @@ namespace PetPet
             }
             catch (Exception ex)
             {
-                Log.Error($"[摸摸头] 处理请求失败: {ex.Message}");
+                Log.Error($"处理请求失败: {ex.Message}");
                 await _mdc.SendMessageAsync(message, "处理请求时出错了，请稍后再试");
             }
         }
@@ -254,12 +236,12 @@ namespace PetPet
                 {
                     return await response.Content.ReadAsByteArrayAsync();
                 }
-                Log.Warning($"[摸摸头] 下载头像失败: HTTP {(int)response.StatusCode}");
+                Log.Warning($"下载头像失败: HTTP {(int)response.StatusCode}");
                 return null;
             }
             catch (Exception ex)
             {
-                Log.Error($"[摸摸头] 下载头像异常: {ex.Message}");
+                Log.Error($"下载头像异常: {ex.Message}");
                 return null;
             }
         }
@@ -285,29 +267,29 @@ namespace PetPet
                 }
 
                 var errorText = await response.Content.ReadAsStringAsync();
-                Log.Warning($"[摸摸头] API返回非GIF内容: {errorText}");
+                Log.Warning($"API返回非GIF内容: {errorText}");
                 return null;
             }
             catch (TaskCanceledException)
             {
-                Log.Warning("[摸摸头] API请求超时");
+                Log.Warning("API请求超时");
                 return null;
             }
             catch (Exception ex)
             {
-                Log.Error($"[摸摸头] 生成GIF异常: {ex.Message}");
+                Log.Error($"生成GIF异常: {ex.Message}");
                 return null;
             }
         }
 
-        public override async Task Exit()
+        public async Task Exit()
         {
             _commandRegistry?.UnregisterModuleCommands("PetPetPlugin");
-            Log.Info("[摸摸头] 插件已卸载");
+            Log.Info("插件已卸载");
             await Task.CompletedTask;
         }
 
-        public override IEnumerable<string> GetDependencies()
+        public IEnumerable<string> GetDependencies()
         {
             return Array.Empty<string>();
         }
@@ -327,7 +309,7 @@ namespace PetPet
             }
             catch (Exception ex)
             {
-                Log.Debug($"[摸摸头] 加载图标失败: {ex.Message}");
+                Log.Debug($"加载图标失败: {ex.Message}");
             }
             return null;
         }

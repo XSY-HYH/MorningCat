@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MorningCat.I18n;
 using MorningCat.PlatformAbstraction;
 
 namespace MorningCat.MDC
@@ -121,13 +122,13 @@ namespace MorningCat.MDC
                     catch (Exception ex)
                     {
                         results[platform] = false;
-                        Logging.Log.Error($"[MDC] 连接平台 {platform} 失败: {ex.Message}");
+                        Logging.Log.Error(I18nManager.S("mdc.platform_connect_failed", platform, ex.Message));
                     }
                 }
                 else
                 {
                     results[platform] = false;
-                    Logging.Log.Warning($"[MDC] 平台 {platform} 未注册适配器");
+                    Logging.Log.Warning(I18nManager.S("mdc.platform_not_registered", platform));
                 }
             }
 
@@ -153,7 +154,7 @@ namespace MorningCat.MDC
                 }
                 catch (Exception ex)
                 {
-                    Logging.Log.Error($"[MDC] 断开平台 {adapter.Platform} 失败: {ex.Message}");
+                    Logging.Log.Error(I18nManager.S("mdc.platform_disconnect_failed", adapter.Platform, ex.Message));
                 }
             }
         }
@@ -329,7 +330,8 @@ namespace MorningCat.MDC
         {
             if (sender is IPlatformAdapter adapter)
             {
-                Logging.Log.Info($"[MDC] 平台 {adapter.PlatformName} 认证成功");
+                Logging.Log.Name("MDC");
+                Logging.Log.Info(I18nManager.S("mdc.platform_authenticated", adapter.PlatformName));
                 if (AllPlatformsAuthenticated)
                 {
                     OnAllPlatformsAuthenticated?.Invoke(this, EventArgs.Empty);

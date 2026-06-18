@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading.Tasks;
 using Logging;
+using MorningCat.I18n;
 
 namespace MorningCat
 {
@@ -40,15 +41,15 @@ namespace MorningCat
             {
                 if (e.ExceptionObject is Exception ex)
                 {
-                    Log.Name("全局异常");
-                    Log.Error($"未处理异常: {ex.Message}\n{ex.StackTrace}");
+                    Log.Name("MorningCat");
+                    Log.Error(I18nManager.S("log.unhandled_exception", ex.Message, ex.StackTrace));
                 }
             };
 
             TaskScheduler.UnobservedTaskException += (sender, e) =>
             {
-                Log.Name("全局异常");
-                Log.Error($"未观察的任务异常: {e.Exception?.InnerException?.Message ?? e.Exception?.Message}");
+                Log.Name("MorningCat");
+                Log.Error(I18nManager.S("log.unobserved_task_exception", e.Exception?.InnerException?.Message ?? e.Exception?.Message));
                 e.SetObserved();
             };
 
@@ -61,12 +62,22 @@ namespace MorningCat
                 bool isDebugMode = args.Contains("--debug") || args.Contains("-d");
                 bool isTestMode = args.Contains("--testmode") || args.Contains("-t");
 
-                Log.Name("MorningCat主类");
+                // 解析 --lang 参数
+                string? overrideLang = null;
+                for (int i = 0; i < args.Length - 1; i++)
+                {
+                    if (args[i] == "--lang" && i + 1 < args.Length)
+                    {
+                        overrideLang = args[i + 1];
+                    }
+                }
+
+                Log.Name("MorningCat");
                 if (isDebugMode)
                 {
                     Log.SetConsoleLevel(LogLevel.Debug);
                     Log.SetFileLevel(LogLevel.Debug);
-                    Log.Debug("调试模式已启用");
+                    Log.Debug(I18nManager.S("log.debug_mode_enabled"));
                 }
                 else
                 {
@@ -76,21 +87,21 @@ namespace MorningCat
 
                 if (isTestMode)
                 {
-                    Log.Warning("测试模式已启用 - 插件签名验证已禁用");
+                    Log.Warning(I18nManager.S("log.test_mode_enabled"));
                 }
 
                 ConsoleANSI.ConsoleAnsiArtist.PrintAnsiText("MorningCat", "100, 200, 255");
                 Console.WriteLine();
-                Log.Debug("MorningCat启动中...");
+                Log.Debug(I18nManager.S("log.starting"));
 
                 var bot = new MorningCatBot(() =>
                 {
                     _exitEvent.TrySetResult(true);
-                }, isTestMode);
+                }, isTestMode, isDebugMode, overrideLang);
 
                 if (bot.IsNewConfig)
                 {
-                    Log.Info("请修改配置文件后重新启动！");
+                    Log.Info(I18nManager.S("log.please_modify_config"));
                     await Task.Delay(5000);
                     return 1;
                 }
@@ -98,7 +109,7 @@ namespace MorningCat
                 await bot.StartAsync();
                 await bot.StartWebUIAsync();
                 bot.StartGui();
-                Log.Info("MorningCat启动成功喵！");
+                Log.Info(I18nManager.S("log.started"));
 
                 Console.CancelKeyPress += (sender, e) =>
                 {
@@ -107,15 +118,15 @@ namespace MorningCat
                 };
 
                 await _exitEvent.Task;
-                Log.Debug("正在关闭MorningCat...");
+                Log.Debug(I18nManager.S("log.shutting_down"));
                 await bot.StopAsync();
-                Log.Info("MorningCat已安全关闭");
+                Log.Info(I18nManager.S("log.safely_shutdown"));
                 return 0;
             }
             catch (Exception ex)
             {
-                Log.Critical($"启动失败QAQ: {ex.Message}");
-                Log.Debug($"详细错误: {ex}");
+                Log.Critical(I18nManager.S("log.startup_failed", ex.Message));
+                Log.Debug(I18nManager.S("log.startup_error_detail", ex));
                 return 1;
             }
         }

@@ -71,7 +71,6 @@ export const siteConfig = {
     },
   ] as MenuItem[],
   links: {
-    github: 'https://github.com/NapNeko/NapCatQQ',
-    docs: 'https://napcat.napneko.icu/',
+    github: 'https://github.com/XSY-xiaoqi/MorningCat',
   },
 };

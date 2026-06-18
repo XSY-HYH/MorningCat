@@ -6,13 +6,27 @@ import React from 'react';
 import { matchPath, useLocation, useNavigate } from 'react-router-dom';
 
 import key from '@/const/key';
+import useI18n from '@/hooks/use-i18n';
 
 import type { MenuItem } from '@/config/site';
 
-const renderItems = (items: MenuItem[], children = false) => {
-  return items?.map((item) => {
+// 导航标签到 i18n 键的映射
+const navI18nKeys: Record<string, string> = {
+  '基础信息': 'webui.sidebar.nav.dashboard',
+  '猫猫日志': 'webui.sidebar.nav.logs',
+  '消息监控': 'webui.sidebar.nav.messages',
+  '插件管理': 'webui.sidebar.nav.plugin',
+  '插件配置': 'webui.sidebar.nav.plugin_config',
+  '数据库管理': 'webui.sidebar.nav.database',
+  '插件市场': 'webui.sidebar.nav.market',
+  '系统配置': 'webui.sidebar.nav.config',
+  '关于': 'webui.sidebar.nav.about',
+};
+
+const MenuItemComponent: React.FC<{ item: MenuItem; children?: boolean }> = ({ item, children = false }) => {
     const navigate = useNavigate();
     const locate = useLocation();
+    const { t } = useI18n();
     const [open, setOpen] = React.useState(!!item.autoOpen);
     const canOpen = React.useMemo(
       () => item.items && item.items.length > 0,
@@ -30,6 +44,9 @@ const renderItems = (items: MenuItem[], children = false) => {
 
       return false;
     }, [item.href, locate.pathname]);
+
+    const i18nKey = navI18nKeys[item.label];
+    const displayLabel = i18nKey ? t(i18nKey) : item.label;
 
     const goTo = (href: string) => {
       navigate(href);
@@ -112,7 +129,7 @@ const renderItems = (items: MenuItem[], children = false) => {
                 <Image
                   radius='none'
                   src={customIcons[item.label]}
-                  alt={item.label}
+                  alt={displayLabel}
                   className='w-5 h-5'
                 />
               )
@@ -131,7 +148,7 @@ const renderItems = (items: MenuItem[], children = false) => {
             }
           }}
         >
-          {item.label}
+          {displayLabel}
         </Button>
         <div
           ref={panelRef}
@@ -140,12 +157,12 @@ const renderItems = (items: MenuItem[], children = false) => {
             height: open ? panelRef.current?.scrollHeight : 0,
           }}
         >
-          {item.items && renderItems(item.items, true)}
+          {item.items && item.items.map(subItem => <MenuItemComponent key={subItem.href + subItem.label} item={subItem} children />)
+          }
         </div>
       </div>
     );
-  });
-};
+  };
 
 interface MenusProps {
   items: MenuItem[];
@@ -155,7 +172,7 @@ const Menus: React.FC<MenusProps> = (props) => {
 
   return (
     <div className='flex flex-col justify-content-center flex-1 gap-2'>
-      {renderItems(items)}
+      {items.map(item => <MenuItemComponent key={item.href + item.label} item={item} />)}
     </div>
   );
 };

@@ -8,8 +8,10 @@ import PageLoading from '@/components/page_loading';
 import SwitchCard from '@/components/switch_card';
 
 import useConfig from '@/hooks/use-config';
+import useI18n from '@/hooks/use-i18n';
 
 const OneBotConfigCard = () => {
+  const { t } = useI18n();
   const { config, saveConfigWithoutNetwork, refreshConfig } = useConfig();
   const [loading, setLoading] = useState(false);
   const {
@@ -47,10 +49,10 @@ const OneBotConfigCard = () => {
   const onSubmit = handleOnebotSubmit(async (data) => {
     try {
       await saveConfigWithoutNetwork(data);
-      toast.success('保存成功');
+      toast.success(t('webui.onebot.save_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`保存失败: ${msg}`);
+      toast.error(t('webui.onebot.save_failed', msg));
     }
   });
 
@@ -58,10 +60,10 @@ const OneBotConfigCard = () => {
     try {
       setLoading(true);
       await refreshConfig();
-      if (shotTip) toast.success('刷新成功');
+      if (shotTip) toast.success(t('webui.onebot.refresh_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`刷新失败: ${msg}`);
+      toast.error(t('webui.onebot.refresh_failed', msg));
     } finally {
       setLoading(false);
     }
@@ -79,15 +81,15 @@ const OneBotConfigCard = () => {
 
   return (
     <>
-      <title>OneBot配置 - NapCat WebUI</title>
+      <title>{t('webui.config.onebot.title')}</title>
       <Controller
         control={control}
         name='musicSignUrl'
         render={({ field }) => (
           <Input
             {...field}
-            label='音乐签名地址'
-            placeholder='请输入音乐签名地址'
+            label={t('webui.onebot.music_sign_url')}
+            placeholder={t('webui.onebot.music_sign_placeholder')}
             classNames={{
               inputWrapper:
                 'bg-default-100/50 dark:bg-white/5 backdrop-blur-md border border-transparent hover:bg-default-200/50 dark:hover:bg-white/10 transition-all shadow-sm data-[hover=true]:border-default-300',
@@ -102,8 +104,8 @@ const OneBotConfigCard = () => {
         render={({ field }) => (
           <SwitchCard
             {...field}
-            description='启用本地文件到URL'
-            label='启用本地文件到URL'
+            description={t('webui.onebot.enable_local_file2url')}
+            label={t('webui.onebot.enable_local_file2url')}
           />
         )}
       />
@@ -113,8 +115,8 @@ const OneBotConfigCard = () => {
         render={({ field }) => (
           <SwitchCard
             {...field}
-            description='启用上报解析合并消息'
-            label='启用上报解析合并消息'
+            description={t('webui.onebot.parse_mult_msg')}
+            label={t('webui.onebot.parse_mult_msg')}
           />
         )}
       />
@@ -124,8 +126,8 @@ const OneBotConfigCard = () => {
         render={({ field }) => (
           <Input
             {...field}
-            label='图片下载代理'
-            placeholder='请输入代理地址，如 http://127.0.0.1:7890'
+            label={t('webui.onebot.image_proxy')}
+            placeholder={t('webui.onebot.image_proxy_placeholder')}
             classNames={{
               inputWrapper:
                 'bg-default-100/50 dark:bg-white/5 backdrop-blur-md border border-transparent hover:bg-default-200/50 dark:hover:bg-white/10 transition-all shadow-sm data-[hover=true]:border-default-300',
@@ -141,7 +143,7 @@ const OneBotConfigCard = () => {
           <Input
             {...field}
             type='number'
-            label='基础超时时间(毫秒)'
+            label={t('webui.onebot.base_timeout')}
             placeholder='10000'
             value={field.value?.toString() ?? ''}
             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
@@ -160,7 +162,7 @@ const OneBotConfigCard = () => {
           <Input
             {...field}
             type='number'
-            label='预估上传速度(KB/s)'
+            label={t('webui.onebot.upload_speed')}
             placeholder='256'
             value={field.value?.toString() ?? ''}
             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
@@ -179,7 +181,7 @@ const OneBotConfigCard = () => {
           <Input
             {...field}
             type='number'
-            label='预估下载速度(KB/s)'
+            label={t('webui.onebot.download_speed')}
             placeholder='1000'
             value={field.value?.toString() ?? ''}
             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
@@ -198,7 +200,7 @@ const OneBotConfigCard = () => {
           <Input
             {...field}
             type='number'
-            label='最大超时时间(毫秒)'
+            label={t('webui.onebot.max_timeout')}
             placeholder='1800000'
             value={field.value?.toString() ?? ''}
             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}

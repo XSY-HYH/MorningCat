@@ -7,6 +7,7 @@ import PageLoading from '@/components/page_loading';
 import SwitchCard from '@/components/switch_card';
 
 import QQManager from '@/controllers/qq_manager';
+import useI18n from '@/hooks/use-i18n';
 
 interface BypassFormData {
   hook: boolean;
@@ -19,6 +20,7 @@ interface BypassFormData {
 }
 
 const BypassConfigCard = () => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const {
     control,
@@ -39,10 +41,10 @@ const BypassConfigCard = () => {
       setValue('container', bypass.container ?? false);
       setValue('js', bypass.js ?? false);
       setValue('o3HookMode', config.o3HookMode === 1);
-      if (showTip) toast.success('刷新成功');
+      if (showTip) toast.success(t('webui.bypass.refresh_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`获取配置失败: ${msg}`);
+      toast.error(t('webui.bypass.fetch_failed', msg));
     } finally {
       setLoading(false);
     }
@@ -52,10 +54,10 @@ const BypassConfigCard = () => {
     try {
       const { o3HookMode, ...bypass } = data;
       await QQManager.setNapCatConfig({ bypass, o3HookMode: o3HookMode ? 1 : 0 });
-      toast.success('保存成功，重启后生效');
+      toast.success(t('webui.bypass.save_success'));
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`保存失败: ${msg}`);
+      toast.error(t('webui.bypass.save_failed', msg));
     }
   });
 
@@ -75,11 +77,11 @@ const BypassConfigCard = () => {
 
   return (
     <>
-      <title>反检测配置 - NapCat WebUI</title>
+      <title>{t('webui.config.bypass.title')}</title>
       <div className='flex flex-col gap-1 mb-2'>
-        <h3 className='text-lg font-semibold text-default-700'>反检测开关配置</h3>
+        <h3 className='text-lg font-semibold text-default-700'>{t('webui.bypass.heading')}</h3>
         <p className='text-sm text-default-500'>
-          控制 Napi2Native 模块的各项反检测功能，修改后需重启生效。
+          {t('webui.bypass.description')}
         </p>
       </div>
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
@@ -89,8 +91,8 @@ const BypassConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='Hook'
-              description='hook特征隐藏'
+              label={t('webui.bypass.hook')}
+              description={t('webui.bypass.hook_desc')}
             />
           )}
         />
@@ -100,8 +102,8 @@ const BypassConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='Window'
-              description='窗口伪造'
+              label={t('webui.bypass.window')}
+              description={t('webui.bypass.window_desc')}
             />
           )}
         />
@@ -111,8 +113,8 @@ const BypassConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='Module'
-              description='加载模块隐藏'
+              label={t('webui.bypass.module')}
+              description={t('webui.bypass.module_desc')}
             />
           )}
         />
@@ -122,8 +124,8 @@ const BypassConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='Process'
-              description='进程反检测'
+              label={t('webui.bypass.process')}
+              description={t('webui.bypass.process_desc')}
             />
           )}
         />
@@ -133,8 +135,8 @@ const BypassConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='Container'
-              description='容器反检测'
+              label={t('webui.bypass.container')}
+              description={t('webui.bypass.container_desc')}
             />
           )}
         />
@@ -144,8 +146,8 @@ const BypassConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='JS'
-              description='JS反检测'
+              label={t('webui.bypass.js')}
+              description={t('webui.bypass.js_desc')}
             />
           )}
         />
@@ -155,8 +157,8 @@ const BypassConfigCard = () => {
           render={({ field }) => (
             <SwitchCard
               {...field}
-              label='o3HookMode'
-              description='O3 Hook 模式'
+              label={t('webui.bypass.o3hook')}
+              description={t('webui.bypass.o3hook_desc')}
             />
           )}
         />

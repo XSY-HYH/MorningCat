@@ -9,8 +9,10 @@ import WebUIManager from '@/controllers/webui_manager';
 
 import type { XTermRef } from '@/components/xterm';
 import XTerm from '@/components/xterm';
+import useI18n from '@/hooks/use-i18n';
 
 export default function LogsPage () {
+  const { t } = useI18n();
   const Xterm = useRef<XTermRef>(null);
   const [backgroundImage] = useLocalStorage<string>(key.backgroundImage, '');
   const hasBackground = !!backgroundImage;
@@ -27,7 +29,7 @@ export default function LogsPage () {
           source.close();
         };
       } catch (_error) {
-        toast.error('获取实时日志失败');
+        toast.error(t('webui.logs.subscribe_failed'));
       }
     };
 
@@ -40,7 +42,7 @@ export default function LogsPage () {
 
   return (
     <>
-      <title>猫猫日志 - MorningCat WebUI</title>
+      <title>{t('webui.logs.title')}</title>
       <div className='h-[calc(100vh_-_8rem)] flex flex-col gap-4 items-center pt-4 px-2'>
         <div className={clsx(
           'w-full flex-1 h-full overflow-hidden rounded-2xl border backdrop-blur-sm transition-all shadow-sm',

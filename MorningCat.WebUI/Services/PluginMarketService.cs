@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Logging;
+using MorningCat.I18n;
 
 namespace MorningCat.WebUI.Services;
 
@@ -15,7 +16,7 @@ public class PluginMarketService
     public PluginMarketService(string? marketUrl = null)
     {
         _marketBaseUrl = string.IsNullOrWhiteSpace(marketUrl) ? _defaultMarketBaseUrl : marketUrl.TrimEnd('/');
-        Log.Debug($"[PluginMarket] 初始化 - 传入值: '{marketUrl}', 最终地址: {_marketBaseUrl}");
+        Log.Debug(I18nManager.S("webui.market.init", marketUrl, _marketBaseUrl));
         
         var handler = new HttpClientHandler
         {
@@ -38,7 +39,7 @@ public class PluginMarketService
     {
         var oldUrl = _marketBaseUrl;
         _marketBaseUrl = string.IsNullOrWhiteSpace(marketUrl) ? _defaultMarketBaseUrl : marketUrl.TrimEnd('/');
-        Log.Debug($"[PluginMarket] 市场地址更新: '{oldUrl}' -> '{_marketBaseUrl}' (传入值: '{marketUrl}')");
+        Log.Debug(I18nManager.S("webui.market.url_updated", oldUrl, _marketBaseUrl, marketUrl));
     }
 
     public async Task<List<MarketPluginItem>?> GetPluginListAsync()
@@ -46,19 +47,19 @@ public class PluginMarketService
         try
         {
             var url = $"{_marketBaseUrl}/api/plugin/list";
-            Log.Debug($"[PluginMarket] 请求插件列表: {url}");
+            Log.Debug(I18nManager.S("webui.market.request_list", url));
             var response = await _httpClient.GetAsync(url);
-            Log.Debug($"[PluginMarket] 插件列表响应: {response.StatusCode}");
+            Log.Debug(I18nManager.S("webui.market.list_response", response.StatusCode));
             if (!response.IsSuccessStatusCode) return null;
             
             var content = await response.Content.ReadAsStringAsync();
             var result = JsonSerializer.Deserialize<List<MarketPluginItem>>(content, _jsonOptions);
-            Log.Debug($"[PluginMarket] 解析到 {result?.Count ?? 0} 个插件");
+            Log.Debug(I18nManager.S("webui.market.parsed_count", result?.Count ?? 0));
             return result;
         }
         catch (Exception ex)
         {
-            Log.Warning($"[PluginMarket] 获取插件列表失败: {ex.Message}");
+            Log.Warning(I18nManager.S("webui.market.get_list_failed", ex.Message));
             return null;
         }
     }
@@ -68,9 +69,9 @@ public class PluginMarketService
         try
         {
             var url = $"{_marketBaseUrl}/api/plugin/getdata/{pluginId}";
-            Log.Debug($"[PluginMarket] 请求插件详情: {url}");
+            Log.Debug(I18nManager.S("webui.market.request_detail", url));
             var response = await _httpClient.GetAsync(url);
-            Log.Debug($"[PluginMarket] 插件详情响应: {response.StatusCode}");
+            Log.Debug(I18nManager.S("webui.market.detail_response", response.StatusCode));
             if (!response.IsSuccessStatusCode) return null;
             
             var content = await response.Content.ReadAsStringAsync();
@@ -78,7 +79,7 @@ public class PluginMarketService
         }
         catch (Exception ex)
         {
-            Log.Warning($"[PluginMarket] 获取插件详情失败: {ex.Message}");
+            Log.Warning(I18nManager.S("webui.market.get_detail_failed", ex.Message));
             return null;
         }
     }
@@ -88,7 +89,7 @@ public class PluginMarketService
         try
         {
             var url = $"{_marketBaseUrl}/api/plugin/setup/{pluginId}";
-            Log.Debug($"[PluginMarket] 下载插件DLL: {url}");
+            Log.Debug(I18nManager.S("webui.market.download_dll", url));
             var response = await _httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode) return null;
             
@@ -96,7 +97,7 @@ public class PluginMarketService
         }
         catch (Exception ex)
         {
-            Log.Warning($"[PluginMarket] 下载插件失败: {ex.Message}");
+            Log.Warning(I18nManager.S("webui.market.download_plugin_failed", ex.Message));
             return null;
         }
     }
@@ -106,7 +107,7 @@ public class PluginMarketService
         try
         {
             var url = $"{_marketBaseUrl}/api/plugin/dependency/{pluginId}/{fileName}";
-            Log.Debug($"[PluginMarket] 下载依赖: {url}");
+            Log.Debug(I18nManager.S("webui.market.download_dep", url));
             var response = await _httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode) return null;
             
@@ -114,7 +115,7 @@ public class PluginMarketService
         }
         catch (Exception ex)
         {
-            Log.Warning($"[PluginMarket] 下载依赖失败: {ex.Message}");
+            Log.Warning(I18nManager.S("webui.market.download_dep_failed", ex.Message));
             return null;
         }
     }

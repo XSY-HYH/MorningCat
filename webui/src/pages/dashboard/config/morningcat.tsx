@@ -1,461 +1,273 @@
-import { Button } from '@heroui/button';
-import { Card, CardBody, CardHeader } from '@heroui/card';
-import { Chip } from '@heroui/chip';
+import { Card, CardBody } from '@heroui/card';
 import { Divider } from '@heroui/divider';
 import { Input } from '@heroui/input';
 import { Switch } from '@heroui/switch';
+import { Select, SelectItem } from '@heroui/select';
 import { Tab, Tabs } from '@heroui/tabs';
 import { useLocalStorage } from '@uidotdev/usehooks';
-import { Controller, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 import key from '@/const/key';
 import SaveButtons from '@/components/button/save_buttons';
 import ImageInput from '@/components/input/image_input';
+import useI18n from '@/hooks/use-i18n';
 
-interface MorningCatConfig {
-  napCatServerUrl: string;
-  napCatToken: string;
-  reconnectDelay: number;
-  modulesDirectory: string;
-  autoLoadModules: boolean;
-  ownerQQ: number;
-  blockedUsers: number[];
-  blockedGroups: number[];
-  pluginStoreUrl: string;
-  webui: {
-    enabled: boolean;
-    listenAddress: string;
-    port: number;
-    username: string;
-    password: string;
-  };
+interface ConfigGroup {
+  key: string;
+  label: string;
+  icon: string;
 }
 
-const defaultConfig: MorningCatConfig = {
-  napCatServerUrl: 'ws://127.0.0.1:7892',
-  napCatToken: '',
-  reconnectDelay: 5,
-  modulesDirectory: 'Modules',
-  autoLoadModules: true,
-  ownerQQ: 0,
-  blockedUsers: [],
-  blockedGroups: [],
-  pluginStoreUrl: '',
-  webui: {
-    enabled: true,
-    listenAddress: '127.0.0.1',
-    port: 8080,
-    username: 'admin',
-    password: 'admin123',
-  },
-};
-
-function ConfigSection ({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className='flex flex-col gap-4'>
-      <div className='flex items-center gap-2'>
-        <h3 className='text-lg font-semibold'>{title}</h3>
-      </div>
-      <div className='flex flex-col gap-4'>
-        {children}
-      </div>
-    </div>
-  );
+interface ConfigItem {
+  key: string;
+  label: string;
+  type: string;
+  group: string;
+  description: string;
+  placeholder?: string;
+  required: boolean;
+  min?: number;
+  max?: number;
+  value: any;
+  options?: string[];
 }
 
-const NapCatConfigCard = ({ config, onSubmit }: { config: MorningCatConfig; onSubmit: (data: Partial<MorningCatConfig>) => Promise<void> }) => {
-  const { control, handleSubmit, formState: { isSubmitting }, reset } = useForm({
-    defaultValues: {
-      napCatServerUrl: config.napCatServerUrl,
-      napCatToken: config.napCatToken,
-      reconnectDelay: config.reconnectDelay,
-    },
-  });
-
-  return (
-    <form onSubmit={handleSubmit(async (data) => {
-      await onSubmit(data);
-    })}>
-      <ConfigSection title='NapCat 连接配置'>
-        <Controller
-          control={control}
-          name='napCatServerUrl'
-          rules={{ required: '服务器地址不能为空' }}
-          render={({ field, fieldState }) => (
-            <Input
-              {...field}
-              label='NapCat 服务器地址'
-              placeholder='ws://127.0.0.1:7892'
-              isInvalid={!!fieldState.error}
-              errorMessage={fieldState.error?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='napCatToken'
-          render={({ field }) => (
-            <Input
-              {...field}
-              label='NapCat Token'
-              placeholder='留空则不验证'
-              type='password'
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='reconnectDelay'
-          rules={{ 
-            required: '重连延迟不能为空', 
-            min: { value: 1, message: '重连延迟至少为1秒' },
-            max: { value: 300, message: '重连延迟不能超过300秒' }
-          }}
-          render={({ field, fieldState }) => (
-            <Input
-              {...field}
-              label='重连延迟 (秒)'
-              type='number'
-              description='WebSocket 断开后每隔多少秒尝试重连一次'
-              isInvalid={!!fieldState.error}
-              errorMessage={fieldState.error?.message}
-            />
-          )}
-        />
-      </ConfigSection>
-      <Divider className='my-4' />
-      <SaveButtons onSubmit={handleSubmit(async (data) => onSubmit(data))} reset={reset} isSubmitting={isSubmitting} />
-    </form>
-  );
-};
-
-const PermissionConfigCard = ({ config, onSubmit }: { config: MorningCatConfig; onSubmit: (data: Partial<MorningCatConfig>) => Promise<void> }) => {
-  const { control, handleSubmit, formState: { isSubmitting }, reset } = useForm({
-    defaultValues: {
-      ownerQQ: config.ownerQQ || '',
-      blockedUsers: config.blockedUsers.join(', '),
-      blockedGroups: config.blockedGroups.join(', '),
-    },
-  });
-
-  return (
-    <form onSubmit={handleSubmit(async (data) => {
-      const blockedUsers = (data.blockedUsers as string)
-        .split(/[,\s]+/)
-        .map(qq => parseInt(qq.trim()))
-        .filter(qq => !isNaN(qq) && qq > 0);
-      const blockedGroups = (data.blockedGroups as string)
-        .split(/[,\s]+/)
-        .map(qq => parseInt(qq.trim()))
-        .filter(qq => !isNaN(qq) && qq > 0);
-      await onSubmit({ ownerQQ: Number(data.ownerQQ) || 0, blockedUsers, blockedGroups });
-    })}>
-      <ConfigSection title='权限配置'>
-        <Controller
-          control={control}
-          name='ownerQQ'
-          render={({ field }) => (
-            <Input
-              {...field}
-              label='持有者 QQ'
-              placeholder='设置为 0 表示未设置'
-              type='number'
-              description='持有者拥有最高权限'
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='blockedUsers'
-          render={({ field }) => (
-            <Input
-              {...field}
-              label='屏蔽用户列表'
-              placeholder='多个用户用逗号或空格分隔'
-              description='屏蔽后该用户的消息将被忽略'
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='blockedGroups'
-          render={({ field }) => (
-            <Input
-              {...field}
-              label='屏蔽群聊列表'
-              placeholder='多个群号用逗号或空格分隔'
-              description='屏蔽后该群的消息将被忽略'
-            />
-          )}
-        />
-      </ConfigSection>
-      <Divider className='my-4' />
-      <SaveButtons onSubmit={handleSubmit(async (data) => {
-        const blockedUsers = (data.blockedUsers as string)
-          .split(/[,\s]+/)
-          .map(qq => parseInt(qq.trim()))
-          .filter(qq => !isNaN(qq) && qq > 0);
-        const blockedGroups = (data.blockedGroups as string)
-          .split(/[,\s]+/)
-          .map(qq => parseInt(qq.trim()))
-          .filter(qq => !isNaN(qq) && qq > 0);
-        await onSubmit({ ownerQQ: Number(data.ownerQQ) || 0, blockedUsers, blockedGroups });
-      })} reset={reset} isSubmitting={isSubmitting} />
-    </form>
-  );
-};
-
-const WebUIConfigCard = ({ config, onSubmit }: { config: MorningCatConfig; onSubmit: (data: Partial<MorningCatConfig>) => Promise<void> }) => {
-  const { control, handleSubmit, formState: { isSubmitting }, reset } = useForm({
-    defaultValues: {
-      enabled: config.webui.enabled,
-      listenAddress: config.webui.listenAddress,
-      port: config.webui.port,
-      username: config.webui.username,
-      password: config.webui.password,
-    },
-  });
-
-  return (
-    <form onSubmit={handleSubmit(async (data) => {
-      await onSubmit({ webui: data });
-    })}>
-      <ConfigSection title='WebUI 配置'>
-        <Controller
-          control={control}
-          name='enabled'
-          render={({ field }) => (
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='font-medium'>启用 WebUI</p>
-                <p className='text-sm text-default-500'>关闭后 WebUI 将不会启动</p>
-              </div>
-              <Switch {...field} isSelected={field.value} onValueChange={field.onChange} />
-            </div>
-          )}
-        />
-        <Controller
-          control={control}
-          name='listenAddress'
-          render={({ field }) => (
-            <Input
-              {...field}
-              label='监听地址'
-              placeholder='127.0.0.1'
-              description='默认 127.0.0.1 仅本地访问，设为 0.0.0.0 允许外部访问'
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='port'
-          rules={{ required: '端口不能为空', min: { value: 1, message: '端口必须大于0' }, max: { value: 65535, message: '端口必须小于65536' } }}
-          render={({ field, fieldState }) => (
-            <Input
-              {...field}
-              label='WebUI 端口'
-              type='number'
-              isInvalid={!!fieldState.error}
-              errorMessage={fieldState.error?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='username'
-          rules={{ required: '用户名不能为空' }}
-          render={({ field, fieldState }) => (
-            <Input
-              {...field}
-              label='登录用户名'
-              isInvalid={!!fieldState.error}
-              errorMessage={fieldState.error?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='password'
-          rules={{ required: '密码不能为空' }}
-          render={({ field, fieldState }) => (
-            <Input
-              {...field}
-              label='登录密码'
-              type='password'
-              isInvalid={!!fieldState.error}
-              errorMessage={fieldState.error?.message}
-            />
-          )}
-        />
-      </ConfigSection>
-      <Divider className='my-4' />
-      <SaveButtons onSubmit={handleSubmit(async (data) => onSubmit({ webui: data }))} reset={reset} isSubmitting={isSubmitting} />
-    </form>
-  );
-};
-
-const PluginStoreConfigCard = ({ config, onSubmit }: { config: MorningCatConfig; onSubmit: (data: Partial<MorningCatConfig>) => Promise<void> }) => {
-  const { control, handleSubmit, formState: { isSubmitting }, reset } = useForm({
-    defaultValues: {
-      pluginStoreUrl: config.pluginStoreUrl,
-    },
-  });
-
-  return (
-    <form onSubmit={handleSubmit(async (data) => {
-      await onSubmit({ pluginStoreUrl: data.pluginStoreUrl });
-    })}>
-      <ConfigSection title='插件市场配置'>
-        <Controller
-          control={control}
-          name='pluginStoreUrl'
-          render={({ field }) => (
-            <Input
-              {...field}
-              label='第三方插件市场地址'
-              placeholder='留空使用默认市场'
-              description='填写第三方插件市场的完整 URL，留空则使用默认市场'
-            />
-          )}
-        />
-      </ConfigSection>
-      <Divider className='my-4' />
-      <SaveButtons onSubmit={handleSubmit(async (data) => onSubmit({ pluginStoreUrl: data.pluginStoreUrl }))} reset={reset} isSubmitting={isSubmitting} />
-    </form>
-  );
-};
+interface ConfigResponse {
+  groups: ConfigGroup[];
+  items: ConfigItem[];
+}
 
 const ChangePasswordCard = () => {
-  const { control, handleSubmit, formState: { isSubmitting }, reset, watch } = useForm<{
-    oldPassword: string;
-    newPassword: string;
-  }>({
-    defaultValues: {
-      oldPassword: '',
-      newPassword: '',
-    },
-  });
-
+  const { t } = useI18n();
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [, setToken] = useLocalStorage(key.token, '');
-  const oldPasswordValue = watch('oldPassword');
 
-  const onSubmit = handleSubmit(async (data) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     try {
       const response = await fetch('/api/auth/update_password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oldPassword: data.oldPassword, newPassword: data.newPassword }),
+        body: JSON.stringify({ oldPassword, newPassword }),
       });
       const result = await response.json();
       if (result.code === 0) {
-        toast.success('修改成功，请重新登录');
+        toast.success(t('config.password_changed'));
         setToken('');
         localStorage.removeItem(key.token);
         navigate('/web_login');
       } else {
-        toast.error(result.message || '修改失败');
+        toast.error(result.message || t('config.password_change_failed'));
       }
-    } catch (error) {
-      toast.error('修改失败');
+    } catch {
+      toast.error(t('config.password_change_failed'));
+    } finally {
+      setIsSubmitting(false);
     }
-  });
+  };
 
   return (
     <form onSubmit={onSubmit}>
-      <ConfigSection title='修改密码'>
-        <Controller
-          control={control}
-          name='oldPassword'
-          rules={{ required: '旧密码不能为空' }}
-          render={({ field, fieldState }) => (
-            <Input
-              {...field}
-              label='旧密码'
-              type='password'
-              isInvalid={!!fieldState.error}
-              errorMessage={fieldState.error?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name='newPassword'
-          rules={{
-            required: '新密码不能为空',
-            minLength: { value: 6, message: '新密码至少需要6个字符' },
-            validate: (value) => {
-              if (value === oldPasswordValue) return '新密码不能与旧密码相同';
-              if (!/[a-zA-Z]/.test(value)) return '新密码必须包含字母';
-              if (!/[0-9]/.test(value)) return '新密码必须包含数字';
-              return true;
-            },
-          }}
-          render={({ field, fieldState }) => (
-            <Input
-              {...field}
-              label='新密码'
-              type='password'
-              placeholder='至少6位，包含字母和数字'
-              isInvalid={!!fieldState.error}
-              errorMessage={fieldState.error?.message}
-            />
-          )}
-        />
-      </ConfigSection>
+      <div className='flex flex-col gap-4'>
+        <div className='flex items-center gap-2'>
+          <h3 className='text-lg font-semibold'>{t('config.label.change_password')}</h3>
+        </div>
+        <Input label={t('config.label.old_password')} type='password' value={oldPassword} onValueChange={setOldPassword} isRequired />
+        <Input label={t('config.label.new_password')} type='password' value={newPassword} onValueChange={setNewPassword} isRequired />
+      </div>
       <Divider className='my-4' />
-      <SaveButtons onSubmit={onSubmit} reset={reset} isSubmitting={isSubmitting} />
+      <SaveButtons onSubmit={onSubmit} reset={() => { setOldPassword(''); setNewPassword(''); }} isSubmitting={isSubmitting} />
     </form>
   );
 };
 
 const ThemeConfigCard = () => {
-  const { control, handleSubmit, formState: { isSubmitting }, reset, setValue } = useForm({
-    defaultValues: {
-      background: '',
-    },
-  });
+  const { t } = useI18n();
+  const [background, setBackground] = useLocalStorage(key.backgroundImage, '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [b64img, setB64img] = useLocalStorage(key.backgroundImage, '');
-
-  useEffect(() => {
-    setValue('background', b64img || '');
-  }, [b64img, setValue]);
-
-  const onSubmit = handleSubmit((data) => {
-    setB64img(data.background);
-    toast.success('保存成功');
-  });
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast.success(t('config.saved'));
+  };
 
   return (
     <form onSubmit={onSubmit}>
-      <ConfigSection title='主题配置'>
-        <Controller
-          control={control}
-          name='background'
-          render={({ field }) => (
-            <ImageInput
-              label='背景图片'
-              value={field.value}
-              onChange={field.onChange}
-            />
-          )}
-        />
-      </ConfigSection>
+      <div className='flex flex-col gap-4'>
+        <div className='flex items-center gap-2'>
+          <h3 className='text-lg font-semibold'>{t('config.label.theme')}</h3>
+        </div>
+        <ImageInput label={t('config.label.background_image')} value={background} onChange={setBackground} />
+      </div>
       <Divider className='my-4' />
-      <SaveButtons onSubmit={onSubmit} reset={reset} isSubmitting={isSubmitting} />
+      <SaveButtons onSubmit={onSubmit} reset={() => setBackground('')} isSubmitting={isSubmitting} />
     </form>
   );
 };
 
+function DynamicConfigCard ({ items, onSubmit, title }: { items: ConfigItem[]; onSubmit: (data: Record<string, any>) => Promise<void>; title: string }) {
+  const { t } = useI18n();
+  const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const values: Record<string, any> = {};
+    items.forEach(item => {
+      values[item.key] = item.value;
+    });
+    setFormValues(values);
+  }, [items]);
+
+  const handleChange = (itemKey: string, value: any) => {
+    setFormValues(prev => ({ ...prev, [itemKey]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const data: Record<string, any> = {};
+      items.forEach(item => {
+        if (item.type === 'number_array') {
+          const val = String(formValues[item.key] || '');
+          data[item.key] = val.split(/[,\s]+/).map((n: string) => parseInt(n.trim())).filter((n: number) => !isNaN(n) && n > 0);
+        } else {
+          data[item.key] = formValues[item.key];
+        }
+      });
+      await onSubmit(data);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const reset = () => {
+    const values: Record<string, any> = {};
+    items.forEach(item => {
+      values[item.key] = item.value;
+    });
+    setFormValues(values);
+  };
+
+  const renderField = (item: ConfigItem) => {
+    const value = formValues[item.key];
+
+    switch (item.type) {
+      case 'boolean':
+        return (
+          <div className='flex items-center justify-between' key={item.key}>
+            <div>
+              <p className='font-medium'>{t(item.label)}</p>
+              {item.description && <p className='text-sm text-default-500'>{t(item.description)}</p>}
+            </div>
+            <Switch isSelected={!!value} onValueChange={(v) => handleChange(item.key, v)} />
+          </div>
+        );
+
+      case 'select':
+        return (
+          <Select
+            key={item.key}
+            label={t(item.label)}
+            description={item.description ? t(item.description) : undefined}
+            selectedKeys={value ? [String(value)] : []}
+            onSelectionChange={(keys) => {
+              const selected = Array.from(keys)[0];
+              handleChange(item.key, selected);
+            }}
+          >
+            {(item.options || []).map((opt) => (
+              <SelectItem key={opt}>{opt}</SelectItem>
+            ))}
+          </Select>
+        );
+
+      case 'password':
+        return (
+          <Input
+            key={item.key}
+            label={t(item.label)}
+            type='password'
+            placeholder={item.placeholder || ''}
+            description={item.description ? t(item.description) : undefined}
+            value={value || ''}
+            onValueChange={(v) => handleChange(item.key, v)}
+            isRequired={item.required}
+          />
+        );
+
+      case 'number':
+        return (
+          <Input
+            key={item.key}
+            label={t(item.label)}
+            type='number'
+            placeholder={item.placeholder || ''}
+            description={item.description ? t(item.description) : undefined}
+            value={value !== undefined && value !== null ? String(value) : ''}
+            onValueChange={(v) => handleChange(item.key, Number(v))}
+            isRequired={item.required}
+            min={item.min}
+            max={item.max}
+          />
+        );
+
+      case 'number_array':
+        return (
+          <Input
+            key={item.key}
+            label={t(item.label)}
+            placeholder={item.placeholder || ''}
+            description={item.description ? t(item.description) : undefined}
+            value={Array.isArray(value) ? value.join(', ') : (value || '')}
+            onValueChange={(v) => handleChange(item.key, v)}
+          />
+        );
+
+      case 'string':
+      default:
+        return (
+          <Input
+            key={item.key}
+            label={t(item.label)}
+            placeholder={item.placeholder || ''}
+            description={item.description ? t(item.description) : undefined}
+            value={value || ''}
+            onValueChange={(v) => handleChange(item.key, v)}
+            isRequired={item.required}
+          />
+        );
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className='flex flex-col gap-4'>
+        <div className='flex items-center gap-2'>
+          <h3 className='text-lg font-semibold'>{title}</h3>
+        </div>
+        <div className='flex flex-col gap-4'>
+          {items.map(item => renderField(item))}
+        </div>
+      </div>
+      <Divider className='my-4' />
+      <SaveButtons onSubmit={handleSubmit} reset={reset} isSubmitting={isSubmitting} />
+    </form>
+  );
+}
+
 export default function MorningCatConfigPage () {
+  const { t } = useI18n();
   const navigate = useNavigate();
-  const search = useSearchParams({ tab: 'napcat' })[0];
-  const tab = search.get('tab') ?? 'napcat';
-  const [config, setConfig] = useState<MorningCatConfig>(defaultConfig);
+  const search = useSearchParams({ tab: 'onebot' })[0];
+  const tab = search.get('tab') ?? 'onebot';
+  const [configData, setConfigData] = useState<ConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -467,16 +279,16 @@ export default function MorningCatConfigPage () {
       const response = await fetch('/api/config');
       const result = await response.json();
       if (result.code === 0 && result.data) {
-        setConfig({ ...defaultConfig, ...result.data });
+        setConfigData(result.data);
       }
     } catch (error) {
-      console.error('加载配置失败:', error);
+      console.error('Failed to load config:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateConfig = async (data: Partial<MorningCatConfig>) => {
+  const updateConfig = async (data: Record<string, any>) => {
     try {
       const response = await fetch('/api/config', {
         method: 'POST',
@@ -485,13 +297,13 @@ export default function MorningCatConfigPage () {
       });
       const result = await response.json();
       if (result.code === 0) {
-        toast.success('保存成功');
+        toast.success(t('config.saved'));
         await loadConfig();
       } else {
-        toast.error(result.message || '保存失败');
+        toast.error(result.message || t('config.save_failed'));
       }
-    } catch (error) {
-      toast.error('保存失败');
+    } catch {
+      toast.error(t('config.save_failed'));
     }
   };
 
@@ -510,9 +322,27 @@ export default function MorningCatConfigPage () {
     );
   };
 
+  const getItemsForGroup = (groupKey: string): ConfigItem[] => {
+    if (!configData) return [];
+    return configData.items.filter(item => item.group === groupKey);
+  };
+
+  const renderGroupTab = (group: ConfigGroup) => {
+    const items = getItemsForGroup(group.key);
+    if (items.length === 0) return null;
+
+    return (
+      <Tab title={t(group.label)} key={group.key}>
+        <ConfigPageItem>
+          <DynamicConfigCard items={items} onSubmit={updateConfig} title={t(group.label)} />
+        </ConfigPageItem>
+      </Tab>
+    );
+  };
+
   return (
     <section className='w-full max-w-[1200px] mx-auto py-4 md:py-8 px-2 md:px-6 relative'>
-      <title>系统配置 - MorningCat WebUI</title>
+      <title>{t('config.page_title')} - MorningCat WebUI</title>
       <Tabs
         aria-label='config tab'
         fullWidth={false}
@@ -528,32 +358,13 @@ export default function MorningCatConfigPage () {
           panel: 'w-full relative p-0',
         }}
       >
-        <Tab title='NapCat 连接' key='napcat'>
-          <ConfigPageItem>
-            <NapCatConfigCard config={config} onSubmit={updateConfig} />
-          </ConfigPageItem>
-        </Tab>
-        <Tab title='权限配置' key='permission'>
-          <ConfigPageItem>
-            <PermissionConfigCard config={config} onSubmit={updateConfig} />
-          </ConfigPageItem>
-        </Tab>
-        <Tab title='WebUI 配置' key='webui'>
-          <ConfigPageItem>
-            <WebUIConfigCard config={config} onSubmit={updateConfig} />
-          </ConfigPageItem>
-        </Tab>
-        <Tab title='插件市场' key='pluginstore'>
-          <ConfigPageItem size='sm'>
-            <PluginStoreConfigCard config={config} onSubmit={updateConfig} />
-          </ConfigPageItem>
-        </Tab>
-        <Tab title='修改密码' key='password'>
+        {configData?.groups.map(group => renderGroupTab(group))}
+        <Tab title={t('config.label.change_password')} key='password'>
           <ConfigPageItem size='sm'>
             <ChangePasswordCard />
           </ConfigPageItem>
         </Tab>
-        <Tab title='主题配置' key='theme'>
+        <Tab title={t('config.label.theme')} key='theme'>
           <ConfigPageItem size='lg'>
             <ThemeConfigCard />
           </ConfigPageItem>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Logging;
+using MorningCat.I18n;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -18,8 +19,8 @@ namespace MorningCat.Config
         
         private static readonly HashSet<string> RequiredConfigKeys = new HashSet<string>
         {
-            "nap_cat_server_url",
-            "nap_cat_token",
+            "onebot_server_url",
+            "onebot_token",
             "modules_directory",
             "auto_load_modules",
             "plugin_signature_public_key",
@@ -30,6 +31,7 @@ namespace MorningCat.Config
             "webui",
             "enable_gui",
             "enable_mct_status",
+            "lang",
             "database"
         };
 
@@ -52,7 +54,7 @@ namespace MorningCat.Config
         
         private void LoadConfig()
         {
-            Log.Name("配置");
+            Log.Name("Config");
             try
             {
                 if (File.Exists(_configPath))
@@ -66,10 +68,10 @@ namespace MorningCat.Config
                             .IgnoreUnmatchedProperties()
                             .Build();
                         _config = deserializer.Deserialize<BotConfig>(yaml);
-                        Log.Info("猫猫配置加载成功AWA");
-                        Log.Debug($"配置文件路径: {_configPath}");
-                        Log.Debug($"NapCatServerUrl: {_config.NapCatServerUrl}");
-                        Log.Debug($"NapCatToken: {(_config.NapCatToken.Length > 5 ? _config.NapCatToken[..5] + "***" : "(空)")}");
+                        Log.Info(I18nManager.S("config.loaded"));
+                        Log.Debug(I18nManager.S("config.path", _configPath));
+                        Log.Debug($"OneBotServerUrl: {_config.OneBotServerUrl}");
+                        Log.Debug($"OneBotToken: {(_config.OneBotToken.Length > 5 ? _config.OneBotToken[..5] + "***" : "(空)")}");
                         Log.Debug($"ModulesDirectory: {_config.ModulesDirectory}");
                         Log.Debug($"AutoLoadModules: {_config.AutoLoadModules}");
                         Log.Debug($"OwnerQQ: {_config.OwnerQQ}");
@@ -83,7 +85,7 @@ namespace MorningCat.Config
                     }
                     else
                     {
-                        Log.Info("配置文件缺少部分键，正在自动补全...");
+                        Log.Info(I18nManager.S("config.keys_missing"));
                         MergeMissingKeys(yaml);
                     }
                 }
@@ -92,15 +94,15 @@ namespace MorningCat.Config
                     _config = new BotConfig();
                     SaveConfig();
                     IsNewConfig = true;
-                    Log.Error($"配置文件不存在，已创建默认配置");
-                    Log.Error($"请修改 \"{_configPath}\" 后重新启动！");
+                    Log.Error(I18nManager.S("config.not_found"));
+                    Log.Error(I18nManager.S("config.edit_required", _configPath));
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"猫猫配置加载失败QAQ:{ex.Message}");
+                Log.Error(I18nManager.S("config.load_failed", ex.Message));
                 _config = new BotConfig();
-                Log.Debug("使用默认配置");
+                Log.Debug(I18nManager.S("config.using_default"));
             }
         }
         
@@ -120,7 +122,7 @@ namespace MorningCat.Config
                 {
                     if (!configDict.ContainsKey(requiredKey))
                     {
-                        Log.Warning($"配置文件缺少必要键: {requiredKey}");
+                        Log.Warning(I18nManager.S("config.key_missing", requiredKey));
                         return false;
                     }
                 }
@@ -129,7 +131,7 @@ namespace MorningCat.Config
             }
             catch (Exception ex)
             {
-                Log.Error($"验证配置完整性失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.validate_failed", ex.Message));
                 return false;
             }
         }
@@ -155,11 +157,11 @@ namespace MorningCat.Config
 
                 // 保存补全后的配置
                 SaveConfig();
-                Log.Info("配置文件已自动补全缺失的键");
+                Log.Info(I18nManager.S("config.completed"));
             }
             catch (Exception ex)
             {
-                Log.Error($"自动补全配置失败: {ex.Message}，使用默认配置");
+                Log.Error(I18nManager.S("config.complete_failed", ex.Message));
                 _config = new BotConfig();
             }
         }
@@ -180,12 +182,12 @@ namespace MorningCat.Config
             {
                 string yaml = GenerateYamlWithComments();
                 File.WriteAllText(_configPath, yaml);
-                Log.Debug("配置文件已保存");
-                Log.Debug($"配置文件路径: {_configPath}");
+                Log.Debug(I18nManager.S("config.saved"));
+                Log.Debug(I18nManager.S("config.path", _configPath));
             }
             catch (Exception ex)
             {
-                Log.Error($"保存配置文件失败: {ex.Message}");
+                Log.Error(I18nManager.S("config.save_failed", ex.Message));
             }
         }
         
@@ -198,9 +200,9 @@ namespace MorningCat.Config
             sb.AppendLine("#请勿删除任何配置项！否则配置加载失败可能导致配置丢失");
             sb.AppendLine();
             
-            sb.AppendLine("# NapCat服务器配置");
-            sb.AppendLine($"nap_cat_server_url: \"{_config.NapCatServerUrl}\"");
-            sb.AppendLine($"nap_cat_token: \"{_config.NapCatToken}\"");
+            sb.AppendLine("# OneBot服务器配置");
+            sb.AppendLine($"onebot_server_url: \"{_config.OneBotServerUrl}\"");
+            sb.AppendLine($"onebot_token: \"{_config.OneBotToken}\"");
             sb.AppendLine();
             
             sb.AppendLine("# 模块配置");
@@ -271,6 +273,10 @@ namespace MorningCat.Config
             sb.AppendLine();
             sb.AppendLine("# 是否启用 #Mct 状态查询功能");
             sb.AppendLine($"enable_mct_status: {_config.EnableMctStatus.ToString().ToLower()}");
+            
+            sb.AppendLine();
+            sb.AppendLine("# 语言配置（zh=中文, en=English, 也可使用第三方语言包如 zh-cn）");
+            sb.AppendLine($"lang: \"{_config.Lang}\"");
             
             sb.AppendLine();
             sb.AppendLine("# 数据库配置");

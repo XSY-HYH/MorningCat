@@ -54,9 +54,26 @@ export default class WebUIManager {
     return data.data as ServerResponse<T>;
   }
 
-  public static async GetNapCatVersion () {
+  public static async GetOneBotVersion () {
     const { data } =
-      await serverRequest.get<ServerResponse<PackageInfo>>('/base/GetNapCatVersion');
+      await serverRequest.get<ServerResponse<PackageInfo>>('/base/GetOneBotVersion');
+    return data.data;
+  }
+
+  public static async getTranslations (lang?: string) {
+    const params: Record<string, string> = {};
+    if (lang) params.lang = lang;
+    const { data } = await serverRequest.get<ServerResponse<I18nData>>(
+      '/i18n/translations',
+      { params }
+    );
+    return data.data;
+  }
+
+  public static async getAvailableLanguages () {
+    const { data } = await serverRequest.get<ServerResponse<I18nLanguages>>(
+      '/i18n/languages'
+    );
     return data.data;
   }
 
@@ -455,6 +472,16 @@ export default class WebUIManager {
       close: () => controller.abort(),
     };
   }
+}
+
+export interface I18nData {
+  lang: string;
+  translations: Record<string, string>;
+}
+
+export interface I18nLanguages {
+  current: string;
+  available: string[];
 }
 
 export interface PluginInfo {

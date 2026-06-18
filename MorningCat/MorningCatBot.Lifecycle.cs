@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Logging;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
 
@@ -12,7 +13,7 @@ namespace MorningCat
             try
             {
                 Log.Name("MDC");
-                Log.Info($"平台 {e.Platform} 连接状态变化: {e.State}");
+                Log.Info(I18nManager.S("lifecycle.connection_changed", e.Platform, e.State));
                 
                 if (e.State == PlatformConnectionState.Authenticated)
                 {
@@ -20,7 +21,7 @@ namespace MorningCat
                     _isAuthenticated = true;
                     _isReconnecting = false;
                     StopReconnectTimer();
-                    Log.Info("平台认证成功喵AWA");
+                    Log.Info(I18nManager.S("lifecycle.authenticated"));
 
                     _webUIManager?.SetConnectionStatus(true);
 
@@ -34,7 +35,7 @@ namespace MorningCat
             }
             catch (System.Exception ex)
             {
-                Log.Error($"OnPlatformConnectionChanged异常: {ex.Message}");
+                Log.Error(I18nManager.S("lifecycle.connection_changed_error", ex.Message));
             }
         }
 
@@ -43,7 +44,7 @@ namespace MorningCat
             try
             {
                 Log.Name("MDC");
-                Log.Warning($"平台 {e.Platform} 断开连接: {e.Reason}");
+                Log.Warning(I18nManager.S("lifecycle.disconnected", e.Platform, e.Reason));
                 
                 if (e.Platform == PlatformId.OneBot)
                 {
@@ -59,7 +60,7 @@ namespace MorningCat
             }
             catch (System.Exception ex)
             {
-                Log.Error($"OnPlatformDisconnected异常: {ex.Message}");
+                Log.Error(I18nManager.S("lifecycle.disconnected_error", ex.Message));
             }
         }
 
@@ -70,7 +71,7 @@ namespace MorningCat
             var config = _configManager.GetConfig();
             var delay = config.ReconnectDelay > 0 ? config.ReconnectDelay : 5;
             
-            Log.Info($"将在 {delay} 秒后尝试重连...");
+            Log.Info(I18nManager.S("lifecycle.reconnect_in", delay));
             _isReconnecting = true;
             
             _reconnectTimer?.Dispose();
@@ -94,7 +95,7 @@ namespace MorningCat
             
             try
             {
-                Log.Info("正在尝试重新连接...");
+                Log.Info(I18nManager.S("lifecycle.reconnecting"));
                 
                 var adapter = _mdc.GetAdapter<OneBotPlatformAdapter>(PlatformId.OneBot);
                 if (adapter != null)
@@ -111,7 +112,7 @@ namespace MorningCat
                             var authSuccess = await authTask;
                             if (authSuccess)
                             {
-                                Log.Info("重连成功喵！");
+                                Log.Info(I18nManager.S("lifecycle.reconnect_success"));
                                 StopReconnectTimer();
                                 return;
                             }
@@ -119,11 +120,11 @@ namespace MorningCat
                     }
                 }
                 
-                Log.Warning("重连失败，将在下次定时器触发时重试...");
+                Log.Warning(I18nManager.S("lifecycle.reconnect_failed"));
             }
             catch (System.Exception ex)
             {
-                Log.Error($"重连异常: {ex.Message}");
+                Log.Error(I18nManager.S("lifecycle.reconnect_error", ex.Message));
             }
         }
 
@@ -145,16 +146,16 @@ namespace MorningCat
                         0,
                         true
                     );
-                    Log.Info($"机器人账号信息已更新: {result.Data.Nickname} ({result.Data.UserId})");
+                    Log.Info(I18nManager.S("lifecycle.bot_info_updated", result.Data.Nickname, result.Data.UserId));
                 }
                 else
                 {
-                    Log.Warning($"获取机器人账号信息失败: {result?.ErrorMessage}");
+                    Log.Warning(I18nManager.S("lifecycle.bot_info_failed", result?.ErrorMessage));
                 }
             }
             catch (System.Exception ex)
             {
-                Log.Warning($"获取机器人账号信息失败: {ex.Message}");
+                Log.Warning(I18nManager.S("lifecycle.bot_info_error", ex.Message));
             }
         }
 
@@ -164,11 +165,11 @@ namespace MorningCat
             {
                 var groups = await _webUIManager.GetGroupListAsync();
                 var friends = await _webUIManager.GetFriendListAsync();
-                Log.Debug($"联系人列表已刷新: {groups.Count} 个群, {friends.Count} 个好友");
+                Log.Debug(I18nManager.S("lifecycle.contacts_refreshed", groups.Count, friends.Count));
             }
             catch (System.Exception ex)
             {
-                Log.Warning($"刷新联系人列表失败: {ex.Message}");
+                Log.Warning(I18nManager.S("lifecycle.contacts_refresh_failed", ex.Message));
             }
         }
     }

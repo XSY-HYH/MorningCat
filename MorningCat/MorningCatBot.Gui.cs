@@ -2,6 +2,7 @@ using System;
 using Logging;
 using MorningCat.Config;
 using MorningCat.GUI;
+using MorningCat.I18n;
 
 namespace MorningCat
 {
@@ -18,7 +19,7 @@ namespace MorningCat
             if (!config.EnableGui)
             {
                 Log.Name("GUI");
-                Log.Info("GUI已禁用");
+                Log.Info(I18nManager.S("webui.gui_disabled"));
                 return;
             }
 
@@ -31,23 +32,23 @@ namespace MorningCat
 
                 _guiManager.SetRestartCallback(() =>
                 {
-                    Log.Info("GUI请求重启...");
+                    Log.Info(I18nManager.S("webui.gui_restart_requested"));
                     _ = RestartAsync();
                 });
 
                 _guiManager.SetShutdownCallback(() =>
                 {
-                    Log.Info("GUI请求关闭...");
+                    Log.Info(I18nManager.S("webui.gui_shutdown_requested"));
                     RequestExit();
                 });
 
                 _guiManager.Show();
                 Log.Name("GUI");
-                Log.Info("GUI已启动");
+                Log.Info(I18nManager.S("gui.started"));
             }
             catch (Exception ex)
             {
-                Log.Warning($"GUI启动失败: {ex.Message}");
+                Log.Warning(I18nManager.S("gui.start_failed", ex.Message));
                 _guiManager = null;
             }
         }
@@ -60,11 +61,11 @@ namespace MorningCat
                 {
                     _guiManager.Shutdown();
                     Log.Name("GUI");
-                    Log.Info("GUI已关闭");
+                    Log.Info(I18nManager.S("gui.stopped"));
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug($"GUI关闭异常: {ex.Message}");
+                    Log.Debug(I18nManager.S("gui.stop_error", ex.Message));
                 }
                 finally
                 {

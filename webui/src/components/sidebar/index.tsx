@@ -8,6 +8,7 @@ import { IoMdLogOut, IoMdRefresh, IoMdPower } from 'react-icons/io';
 import key from '@/const/key';
 import useAuth from '@/hooks/auth';
 import useDialog from '@/hooks/use-dialog';
+import useI18n from '@/hooks/use-i18n';
 import type { MenuItem } from '@/config/site';
 import ProcessManager from '@/controllers/process_manager';
 
@@ -23,21 +24,22 @@ const SideBar: React.FC<SideBarProps> = (props) => {
   const { open, items, onClose } = props;
   const { revokeAuth } = useAuth();
   const dialog = useDialog();
+  const { t } = useI18n();
   const [backgroundImage] = useLocalStorage<string>(key.backgroundImage, '');
   const hasBackground = !!backgroundImage;
 
   const onRevokeAuth = () => {
     dialog.confirm({
-      title: '退出登录',
-      content: '确定要退出登录吗？',
+      title: t('webui.sidebar.logout.title'),
+      content: t('webui.sidebar.logout.content'),
       onConfirm: revokeAuth,
     });
   };
 
   const onRestart = () => {
     dialog.confirm({
-      title: '重启应用',
-      content: '确定要重启 MorningCat 吗？重启后 WebUI 将暂时无法访问。',
+      title: t('webui.sidebar.restart.title'),
+      content: t('webui.sidebar.restart.content'),
       onConfirm: async () => {
         try {
           await ProcessManager.restartProcess();
@@ -53,8 +55,8 @@ const SideBar: React.FC<SideBarProps> = (props) => {
 
   const onShutdown = () => {
     dialog.confirm({
-      title: '停止运行',
-      content: '确定要停止 MorningCat 吗？停止后需要手动重新启动。',
+      title: t('webui.sidebar.stop.title'),
+      content: t('webui.sidebar.stop.content'),
       onConfirm: async () => {
         try {
           await ProcessManager.shutdownProcess();
@@ -118,7 +120,7 @@ const SideBar: React.FC<SideBarProps> = (props) => {
                 onPress={onRestart}
                 startContent={<IoMdRefresh size={18} />}
               >
-                重启应用
+                {t('webui.sidebar.restart_btn')}
               </Button>
               <Button
                 className='w-full bg-danger-50/50 hover:bg-danger-100/80 text-danger-500 font-medium shadow-sm hover:shadow-md transition-all duration-300 backdrop-blur-sm'
@@ -127,7 +129,7 @@ const SideBar: React.FC<SideBarProps> = (props) => {
                 onPress={onShutdown}
                 startContent={<IoMdPower size={18} />}
               >
-                停止运行
+                {t('webui.sidebar.stop_btn')}
               </Button>
               <Button
                 className='w-full bg-default-50/50 hover:bg-default-100/80 text-default-500 font-medium shadow-sm hover:shadow-md transition-all duration-300 backdrop-blur-sm'
@@ -136,7 +138,7 @@ const SideBar: React.FC<SideBarProps> = (props) => {
                 onPress={onRevokeAuth}
                 startContent={<IoMdLogOut size={18} />}
               >
-                退出登录
+                {t('webui.sidebar.logout_btn')}
               </Button>
             </div>
           </div>

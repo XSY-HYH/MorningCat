@@ -14,7 +14,17 @@ param(
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 $OutputRoot = Join-Path $ProjectRoot "PublishOutput"
-$Version = "5.0.3"
+
+# 从 MorningCat.csproj 自动读取版本号
+$CsprojPath = Join-Path $ProjectRoot "MorningCat\MorningCat.csproj"
+$CsprojContent = Get-Content $CsprojPath -Raw
+if ($CsprojContent -match '<Version>([^<]+)</Version>') {
+    $Version = $Matches[1]
+    Write-Host "[Publish] 从 csproj 读取版本号: $Version" -ForegroundColor Cyan
+} else {
+    Write-Host "[Publish] 无法从 csproj 读取版本号，请检查 MorningCat.csproj" -ForegroundColor Red
+    exit 1
+}
 
 function Clean-BinObj {
     Write-Host "[Clean] 清理 bin/obj 目录..." -ForegroundColor Cyan

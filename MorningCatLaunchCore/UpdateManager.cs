@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.WebSockets;
@@ -108,12 +109,15 @@ namespace MorningCatLaunchCore
         private static volatile bool _restartRequested;
         private static int _wsHeartbeatIntervalHours = 12;
         private static bool _enableWsMonitor = false;
+        private static DownloadSourceType _forceSource = DownloadSourceType.Auto;
+        private static DownloadSourceProvider? _sourceProvider;
 
         static LaunchCore()
         {
             var handler = new HttpClientHandler
             {
-                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
             };
             _httpClient = new HttpClient(handler)
             {
@@ -121,6 +125,36 @@ namespace MorningCatLaunchCore
             };
 
             _launchCorePath = Path.Combine(AppContext.BaseDirectory, "MorningCatLaunchCore.dll");
+        }
+
+        /// <summary>
+        /// 创建带完整浏览器标准请求头的 HttpRequestMessage
+        /// </summary>
+        internal static HttpRequestMessage CreateRequest(HttpMethod method, string url)
+        {
+            var request = new HttpRequestMessage(method, url);
+            var os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows NT 10.0"
+                : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "X11; Linux"
+                : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "Macintosh; Intel Mac OS X 10_15_7" : "Unknown";
+            var arch = RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X64 => "x86_64",
+                Architecture.Arm64 => "aarch64",
+                Architecture.X86 => "i686",
+                _ => RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()
+            };
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+
+            request.Headers.Add("User-Agent", $"Mozilla/5.0 ({os}; {arch}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 MorningCatLaunchCore/{version}");
+            request.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+            request.Headers.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+            request.Headers.Add("Cache-Control", "no-cache");
+            request.Headers.Add("Sec-Fetch-Dest", "document");
+            request.Headers.Add("Sec-Fetch-Mode", "navigate");
+            request.Headers.Add("Sec-Fetch-Site", "none");
+            request.Headers.Add("Sec-Fetch-User", "?1");
+            request.Headers.Add("Upgrade-Insecure-Requests", "1");
+            return request;
         }
 
         public static int Run(string[] args)
@@ -139,11 +173,26 @@ namespace MorningCatLaunchCore
                     _wsHeartbeatIntervalHours = hours;
                     Console.WriteLine($"[MLC] WS heartbeat interval set to {hours} hour(s)");
                 }
+                else if (args[i] == "--source" && i + 1 < args.Length)
+                {
+                    var sourceArg = args[i + 1].ToLower();
+                    _forceSource = sourceArg switch
+                    {
+                        "github" => DownloadSourceType.GitHub,
+                        "official" => DownloadSourceType.Official,
+                        _ => DownloadSourceType.Auto
+                    };
+                    Console.WriteLine($"[MLC] 下载源强制设置为: {_forceSource}");
+                }
             }
+
+            // 初始化下载源提供者并测试延迟
+            _sourceProvider = new DownloadSourceProvider(_httpClient);
+            var selectedSource = _sourceProvider.TestAndSelectBestAsync(_forceSource).GetAwaiter().GetResult();
 
             bool updateServerReachable = false;
 
-            var selfUpdateResult = SelfUpdateCheck();
+            var selfUpdateResult = SelfUpdateCheck(selectedSource);
             if (!selfUpdateResult.shouldContinue)
             {
                 Console.WriteLine("[MLC] Self-update applied, returning restart code...");
@@ -151,7 +200,7 @@ namespace MorningCatLaunchCore
             }
             updateServerReachable = selfUpdateResult.serverReachable;
 
-            var coreUpdateResult = CheckAndUpdateCore(args).GetAwaiter().GetResult();
+            var coreUpdateResult = CheckAndUpdateCore(args, selectedSource).GetAwaiter().GetResult();
             if (!updateServerReachable && coreUpdateResult == null)
             {
                 Console.WriteLine("[MLC] Update server unreachable, skipping WS monitor");
@@ -209,12 +258,69 @@ namespace MorningCatLaunchCore
             Volatile.Write(ref _restartRequested, true);
         }
 
-        private static (bool shouldContinue, bool serverReachable) SelfUpdateCheck()
+        private static (bool shouldContinue, bool serverReachable) SelfUpdateCheck(DownloadSource source)
         {
             try
             {
                 Console.WriteLine("[MLC] Checking LaunchCore self-update...");
 
+                if (source.Type == DownloadSourceType.GitHub)
+                {
+                    return SelfUpdateCheckGitHub(source);
+                }
+
+                return SelfUpdateCheckOfficial(source);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MLC] Self-update check failed: {ex.Message}, continuing with local version");
+                return (true, false);
+            }
+        }
+
+        private static (bool shouldContinue, bool serverReachable) SelfUpdateCheckGitHub(DownloadSource source)
+        {
+            try
+            {
+                var version = _sourceProvider!.GetLatestGitHubVersionAsync().GetAwaiter().GetResult();
+                if (string.IsNullOrEmpty(version))
+                {
+                    Console.WriteLine("[MLC] GitHub: 无法获取最新版本，跳过自更新");
+                    return (true, false);
+                }
+
+                var downloadUrl = _sourceProvider.GetGitHubMlcDownloadUrl(version);
+                Console.WriteLine($"[MLC] GitHub: MLC 下载链接: {downloadUrl}");
+
+                // 下载 zip 到临时目录
+                var tempDir = Path.Combine(Path.GetTempPath(), $"mlc_update_{Guid.NewGuid():N}");
+                var zipPath = Path.Combine(tempDir, "mlc.zip");
+
+                try
+                {
+                    Directory.CreateDirectory(tempDir);
+                    DownloadZipAsync(downloadUrl, zipPath).GetAwaiter().GetResult();
+                    ExtractZip(zipPath, AppContext.BaseDirectory);
+
+                    Console.WriteLine("[MLC] GitHub: 自更新完成，需要重启");
+                    return (false, true);
+                }
+                finally
+                {
+                    try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MLC] GitHub 自更新失败: {ex.Message}，回退到本地版本");
+                return (true, false);
+            }
+        }
+
+        private static (bool shouldContinue, bool serverReachable) SelfUpdateCheckOfficial(DownloadSource source)
+        {
+            try
+            {
                 var listing = FetchDirectoryListingAsync("MorningCat/LaunchCore", CancellationToken.None).GetAwaiter().GetResult();
                 if (listing == null)
                 {
@@ -269,12 +375,100 @@ namespace MorningCatLaunchCore
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[MLC] Self-update check failed: {ex.Message}, continuing with local version");
+                Console.WriteLine($"[MLC] Official self-update failed: {ex.Message}, continuing with local version");
                 return (true, false);
             }
         }
 
-        private static async Task<UpdateResult?> CheckAndUpdateCore(string[] args)
+        private static async Task<UpdateResult?> CheckAndUpdateCore(string[] args, DownloadSource source)
+        {
+            try
+            {
+                if (source.Type == DownloadSourceType.GitHub)
+                {
+                    return await CheckAndUpdateCoreGitHub(source);
+                }
+
+                return await CheckAndUpdateCoreOfficial(source);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MLC] Core update check failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static async Task<UpdateResult?> CheckAndUpdateCoreGitHub(DownloadSource source)
+        {
+            try
+            {
+                var version = await _sourceProvider!.GetLatestGitHubVersionAsync();
+                if (string.IsNullOrEmpty(version))
+                {
+                    Console.WriteLine("[MLC] GitHub: 无法获取最新核心版本");
+                    return null;
+                }
+
+                var downloadUrl = _sourceProvider.GetGitHubCoreDownloadUrl(version);
+                Console.WriteLine($"[MLC] GitHub: Core 下载链接: {downloadUrl}");
+
+                var repoCorePath = Path.Combine(AppContext.BaseDirectory, "MorningCatCore");
+
+                // 简单版本检查：如果本地已有该版本则跳过
+                var versionFile = Path.Combine(repoCorePath, ".version");
+                if (File.Exists(versionFile) && (await File.ReadAllTextAsync(versionFile)).Trim() == version)
+                {
+                    Console.WriteLine($"[MLC] GitHub: 核心已是最新版本 {version}");
+                    return new UpdateResult
+                    {
+                        Success = true,
+                        Message = "Core is up to date",
+                        RepoDllPath = FindRepoDll(repoCorePath),
+                        FilesUpdated = 0,
+                        FilesChecked = 0
+                    };
+                }
+
+                Console.WriteLine($"[MLC] GitHub: 下载核心 {version}...");
+
+                var tempDir = Path.Combine(Path.GetTempPath(), $"core_update_{Guid.NewGuid():N}");
+                var zipPath = Path.Combine(tempDir, "core.zip");
+
+                try
+                {
+                    Directory.CreateDirectory(tempDir);
+                    await DownloadZipAsync(downloadUrl, zipPath);
+
+                    if (!Directory.Exists(repoCorePath))
+                        Directory.CreateDirectory(repoCorePath);
+
+                    ExtractZip(zipPath, repoCorePath);
+
+                    // 写入版本标记
+                    await File.WriteAllTextAsync(versionFile, version);
+
+                    return new UpdateResult
+                    {
+                        Success = true,
+                        Message = $"Core updated to {version} via GitHub",
+                        RepoDllPath = FindRepoDll(repoCorePath),
+                        FilesUpdated = -1,
+                        FilesChecked = -1
+                    };
+                }
+                finally
+                {
+                    try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MLC] GitHub 核心更新失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static async Task<UpdateResult?> CheckAndUpdateCoreOfficial(DownloadSource source)
         {
             try
             {
@@ -654,7 +848,8 @@ namespace MorningCatLaunchCore
             try
             {
                 var url = $"{_primaryServer}/api/files?path={Uri.EscapeDataString(path)}";
-                var response = await _httpClient.GetAsync(url, ct);
+                var request = CreateRequest(HttpMethod.Get, url);
+                var response = await _httpClient.SendAsync(request, ct);
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync(ct);
@@ -915,7 +1110,8 @@ namespace MorningCatLaunchCore
             var tempPath = targetPath + ".tmp";
             try
             {
-                var response = await _httpClient.GetAsync(url);
+                var request = CreateRequest(HttpMethod.Get, url);
+                var response = await _httpClient.SendAsync(request);
                 response.EnsureSuccessStatusCode();
 
                 using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -962,6 +1158,28 @@ namespace MorningCatLaunchCore
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
+        }
+
+        private static async Task DownloadZipAsync(string url, string targetPath)
+        {
+            var request = CreateRequest(HttpMethod.Get, url);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var dir = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            using (var fs = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await response.Content.CopyToAsync(fs);
+            }
+        }
+
+        private static void ExtractZip(string zipPath, string targetDir)
+        {
+            System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, targetDir, overwriteFiles: true);
         }
 
         #endregion

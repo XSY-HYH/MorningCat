@@ -9,8 +9,10 @@ import key from '@/const/key';
 import SaveButtons from '@/components/button/save_buttons';
 
 import WebUIManager from '@/controllers/webui_manager';
+import useI18n from '@/hooks/use-i18n';
 
 const ChangePasswordCard = () => {
+  const { t } = useI18n();
   const {
     control,
     handleSubmit: handleWebuiSubmit,
@@ -38,28 +40,28 @@ const ChangePasswordCard = () => {
       // 使用正常密码更新流程
       await WebUIManager.changePassword(data.oldToken, data.newToken);
 
-      toast.success('修改成功');
+      toast.success(t('webui.changepwd.success'));
       setToken('');
       localStorage.removeItem(key.token);
       navigate('/web_login');
     } catch (error) {
       const msg = (error as Error).message;
-      toast.error(`修改失败: ${msg}`);
+      toast.error(t('webui.changepwd.failed', msg));
     }
   });
 
   return (
     <>
-      <title>修改密码 - NapCat WebUI</title>
+      <title>{t('webui.config.change_password.title')}</title>
 
       <Controller
         control={control}
         name='oldToken'
         rules={{
-          required: '旧密码不能为空',
+          required: t('webui.changepwd.old_required'),
           validate: (value) => {
             if (!value || value.trim().length === 0) {
-              return '旧密码不能为空';
+              return t('webui.changepwd.old_required');
             }
             return true;
           },
@@ -67,8 +69,8 @@ const ChangePasswordCard = () => {
         render={({ field }) => (
           <Input
             {...field}
-            label='旧密码'
-            placeholder='请输入旧密码'
+            label={t('webui.changepwd.old_password')}
+            placeholder={t('webui.changepwd.old_placeholder')}
             type='password'
             isRequired
             isInvalid={!!errors.oldToken}
@@ -81,28 +83,28 @@ const ChangePasswordCard = () => {
         control={control}
         name='newToken'
         rules={{
-          required: '新密码不能为空',
+          required: t('webui.changepwd.new_required'),
           minLength: {
             value: 6,
-            message: '新密码至少需要6个字符',
+            message: t('webui.changepwd.min_length'),
           },
           validate: (value) => {
             if (!value || value.trim().length === 0) {
-              return '新密码不能为空';
+              return t('webui.changepwd.new_required');
             }
             if (value.trim().length !== value.length) {
-              return '新密码不能包含前后空格';
+              return t('webui.changepwd.no_spaces');
             }
             if (value === oldTokenValue) {
-              return '新密码不能与旧密码相同';
+              return t('webui.changepwd.same_as_old');
             }
             // 检查是否包含字母
             if (!/[a-zA-Z]/.test(value)) {
-              return '新密码必须包含字母';
+              return t('webui.changepwd.must_have_letter');
             }
             // 检查是否包含数字
             if (!/[0-9]/.test(value)) {
-              return '新密码必须包含数字';
+              return t('webui.changepwd.must_have_number');
             }
             return true;
           },
@@ -110,8 +112,8 @@ const ChangePasswordCard = () => {
         render={({ field }) => (
           <Input
             {...field}
-            label='新密码'
-            placeholder='至少6位，包含字母和数字'
+            label={t('webui.changepwd.new_password')}
+            placeholder={t('webui.changepwd.new_placeholder')}
             type='password'
             isRequired
             isInvalid={!!errors.newToken}

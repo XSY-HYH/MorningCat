@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 using Logging;
 using MorningCat.Commands;
 using MorningCat.Events;
+using MorningCat.I18n;
 using MorningCat.MDC;
 using MorningCat.PlatformAbstraction;
+using MorningCat.PluginErrorDatabase;
 
 namespace MorningCat
 {
@@ -21,7 +23,7 @@ namespace MorningCat
             {
                 var sourceInfo = message.GetSourceInfo();
                 Log.Name("MessageHandling");
-                Log.Info($"接受来自{sourceInfo}的消息：{message.PlainText}");
+                Log.Info(_i18n.T("message.received", sourceInfo, message.PlainText));
                 
                 var briefInfo = message.GetBriefInfo();
                 Log.Debug(briefInfo);
@@ -34,13 +36,14 @@ namespace MorningCat
                     }
                     catch (Exception ex)
                     {
-                        Log.Error($"处理消息时出错: {ex.Message}");
+                        Log.Error(_i18n.T("message.handle_error", ex.Message));
+                        TryMatchPluginError(ex, "MessageHandling");
                     }
                 });
             }
             catch (Exception ex)
             {
-                Log.Error($"处理消息时发生异常: {ex.Message}");
+                Log.Error(_i18n.T("message.handle_exception", ex.Message));
             }
         }
         
@@ -82,7 +85,7 @@ namespace MorningCat
                 if (handled)
                 {
                     Log.Name("MessageHandling");
-                    Log.Debug($"处理PlainText='{message.PlainText}', SenderId={message.SenderId}, GroupId={message.GroupId}, Command={text}");
+                    Log.Debug(I18nManager.S("message.handle_debug", message.PlainText, message.SenderId, message.GroupId, text));
                 }
                 
                 if (!handled)
@@ -92,7 +95,7 @@ namespace MorningCat
             }
             catch (Exception ex)
             {
-                Log.Error($"HandleMessageAsync 异常: {ex.Message}");
+                Log.Error(I18nManager.S("message.handle_exception", ex.Message));
                 throw;
             }
         }
@@ -105,7 +108,7 @@ namespace MorningCat
             }
             catch (Exception ex)
             {
-                Log.Error($"触发未处理消息事件失败: {ex.Message}");
+                Log.Error(_i18n.T("message.unhandled_event_failed", ex.Message));
             }
         }
 
@@ -113,7 +116,7 @@ namespace MorningCat
         {
             if (!await _sendSemaphore.WaitAsync(TimeSpan.FromSeconds(5)))
             {
-                Log.Warning("获取发送信号量超时");
+                Log.Warning(_i18n.T("message.send_semaphore_timeout"));
                 return;
             }
             
@@ -122,12 +125,12 @@ namespace MorningCat
                 var result = await _mdc.SendMessageAsync(originalMessage, responseText);
                 if (!result.Success)
                 {
-                    Log.Warning($"发送消息失败: {result.ErrorMessage}");
+                    Log.Warning(_i18n.T("message.send_failed_result", result.ErrorMessage));
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"发送消息失败: {ex.Message}");
+                Log.Error(_i18n.T("message.send_failed", ex.Message));
             }
             finally
             {
@@ -168,7 +171,7 @@ namespace MorningCat
             }
             catch (Exception ex)
             {
-                Log.Error($"处理#Mct状态查询失败: {ex.Message}");
+                Log.Error(I18nManager.S("message.mct_status_failed", ex.Message));
             }
         }
 
