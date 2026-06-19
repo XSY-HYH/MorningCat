@@ -61,3 +61,9 @@ init_error_db.py
 minefield_errors.json
 error_db.sqlite
 manim/
+
+# Reference projects (not part of MorningCat)
+references/
+
+# Agent project (temporarily separated, will be reintegrated later)
+MorningCat.Agent/

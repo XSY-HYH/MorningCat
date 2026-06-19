@@ -756,31 +756,34 @@ namespace MorningCat.Commands
             var config = _configManager.GetConfig();
             var userId = long.TryParse(message.SenderId, out var uid) ? uid : 0;
 
+            // 机器人自身等同于持有者权限
+            var isSelf = !string.IsNullOrEmpty(message.SelfId) && message.SenderId == message.SelfId;
+
             Log.Debug(I18nManager.S("command.permission_check", permission, userId, config.OwnerQQ, config.IsOwner(userId)));
 
             if (permission == CommandPermission.BotOwner)
             {
-                return config.IsOwner(userId);
+                return config.IsOwner(userId) || isSelf;
             }
 
             if (message.MessageType != UnifiedMessageType.Group)
             {
-                return config.IsOwner(userId);
+                return config.IsOwner(userId) || isSelf;
             }
 
             // 群内权限：从PlatformMessage获取角色信息
             var senderRole = message.SenderRole;
             if (senderRole == null)
-                return config.IsOwner(userId);
+                return config.IsOwner(userId) || isSelf;
 
             if (permission == CommandPermission.Owner)
             {
-                return senderRole == "owner" || config.IsOwner(userId);
+                return senderRole == "owner" || config.IsOwner(userId) || isSelf;
             }
 
             if (permission == CommandPermission.GroupAdmin)
             {
-                return senderRole == "owner" || senderRole == "admin" || config.IsOwner(userId);
+                return senderRole == "owner" || senderRole == "admin" || config.IsOwner(userId) || isSelf;
             }
 
             return false;

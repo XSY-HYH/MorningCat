@@ -1,67 +1,24 @@
 import { Button } from '@heroui/button';
 import toast from 'react-hot-toast';
 import { LuDownload, LuUpload } from 'react-icons/lu';
-import { requestServerWithFetch } from '@/utils/request';
 import useI18n from '@/hooks/use-i18n';
 
-// 导入配置
-const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>, t: (key: string, ...args: any[]) => string) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  // 检查文件类型
-  if (!file.name.endsWith('.zip')) {
-    toast.error(t('webui.backup.zip_required'));
-    return;
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append('configFile', file);
-
-    const response = await requestServerWithFetch('/OB11Config/ImportConfig', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || t('webui.backup.import_failed'));
-    }
-
-    const result = await response.json();
-    // 检查是否成功导入
-    if (result.code === 0) {
-      toast.success(result.data?.message || t('webui.backup.import_success'));
-    } else {
-      toast.error(t('webui.backup.import_failed', result.data?.message || ''));
-    }
-  } catch (error) {
-    const msg = (error as Error).message;
-    toast.error(t('webui.backup.import_failed', msg));
-  } finally {
-    // 重置文件输入
-    event.target.value = '';
-  }
-};
-
-// 导出配置
 const handleExportConfig = async (t: (key: string, ...args: any[]) => string) => {
   try {
-    const response = await requestServerWithFetch('/OB11Config/ExportConfig', {
+    const response = await fetch('/api/backup/export', {
       method: 'GET',
+      credentials: 'include',
     });
 
     if (!response.ok) {
       throw new Error(t('webui.backup.export_failed'));
     }
 
-    // 创建下载链接
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const fileName = response.headers.get('Content-Disposition')?.split('=')[1]?.replace(/"/g, '') || 'config_backup.zip';
+    const fileName = response.headers.get('Content-Disposition')?.split('=')[1]?.replace(/"/g, '') || 'mct_backup.zip';
     a.download = fileName;
     document.body.appendChild(a);
     a.click();
@@ -72,6 +29,40 @@ const handleExportConfig = async (t: (key: string, ...args: any[]) => string) =>
   } catch (error) {
     const msg = (error as Error).message;
     toast.error(t('webui.backup.export_failed', msg));
+  }
+};
+
+const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>, t: (key: string, ...args: any[]) => string) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.name.endsWith('.zip')) {
+    toast.error(t('webui.backup.zip_required'));
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('configFile', file);
+
+    const response = await fetch('/api/backup/import', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || t('webui.backup.import_failed'));
+    }
+
+    toast.success(t('webui.backup.import_success'));
+  } catch (error) {
+    const msg = (error as Error).message;
+    toast.error(t('webui.backup.import_failed', msg));
+  } finally {
+    event.target.value = '';
   }
 };
 

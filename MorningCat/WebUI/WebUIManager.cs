@@ -977,6 +977,114 @@ namespace MorningCat.WebUI
             });
         }
 
+        public byte[] ExportConfig()
+        {
+            var baseDir = Path.GetDirectoryName(ConfigManager.GetCorrectedPath("config.yml")) ?? AppContext.BaseDirectory;
+            using var ms = new MemoryStream();
+            using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, true))
+            {
+                // 导出 config.yml
+                var configPath = ConfigManager.GetCorrectedPath("config.yml");
+                if (File.Exists(configPath))
+                {
+                    var entry = zip.CreateEntry("config.yml", System.IO.Compression.CompressionLevel.Optimal);
+                    using var entryStream = entry.Open();
+                    using var fileStream = File.OpenRead(configPath);
+                    fileStream.CopyTo(entryStream);
+                }
+
+                // 导出 lang 目录
+                var langDir = Path.Combine(baseDir, "lang");
+                if (Directory.Exists(langDir))
+                {
+                    foreach (var file in Directory.GetFiles(langDir, "*.yml"))
+                    {
+                        var entry = zip.CreateEntry($"lang/{Path.GetFileName(file)}", System.IO.Compression.CompressionLevel.Optimal);
+                        using var entryStream = entry.Open();
+                        using var fileStream = File.OpenRead(file);
+                        fileStream.CopyTo(entryStream);
+                    }
+                }
+
+                // 导出 Modules 目录中的插件配置
+                var modulesDir = ConfigManager.GetCorrectedPath(
+                    _configManager.GetConfig().ModulesDirectory);
+                if (Directory.Exists(modulesDir))
+                {
+                    foreach (var dir in Directory.GetDirectories(modulesDir))
+                    {
+                        foreach (var configFile in Directory.GetFiles(dir, "*.yml"))
+                        {
+                            var relativePath = $"Modules/{Path.GetFileName(dir)}/{Path.GetFileName(configFile)}";
+                            var entry = zip.CreateEntry(relativePath, System.IO.Compression.CompressionLevel.Optimal);
+                            using var entryStream = entry.Open();
+                            using var fileStream = File.OpenRead(configFile);
+                            fileStream.CopyTo(entryStream);
+                        }
+                    }
+                }
+            }
+            return ms.ToArray();
+        }
+
+        public string ImportConfig(byte[] zipData)
+        {
+            var baseDir = Path.GetDirectoryName(ConfigManager.GetCorrectedPath("config.yml")) ?? AppContext.BaseDirectory;
+            var importedFiles = new List<string>();
+
+            using var ms = new MemoryStream(zipData);
+            using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read);
+            
+            // 先验证 zip 内容
+            string? configEntry = null;
+            foreach (var entry in zip.Entries)
+            {
+                if (entry.FullName == "config.yml")
+                {
+                    configEntry = entry.FullName;
+                }
+            }
+
+            if (configEntry == null)
+            {
+                throw new InvalidOperationException("Invalid backup: config.yml not found in archive");
+            }
+
+            // 备份当前配置
+            var currentConfigPath = ConfigManager.GetCorrectedPath("config.yml");
+            if (File.Exists(currentConfigPath))
+            {
+                var backupPath = currentConfigPath + $".backup_{DateTime.Now:yyyyMMdd_HHmmss}";
+                File.Copy(currentConfigPath, backupPath);
+            }
+
+            foreach (var entry in zip.Entries)
+            {
+                var targetPath = Path.Combine(baseDir, entry.FullName);
+
+                // 安全检查：防止路径遍历
+                var fullPath = Path.GetFullPath(targetPath);
+                if (!fullPath.StartsWith(Path.GetFullPath(baseDir)))
+                {
+                    continue;
+                }
+
+                var entryDir = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(entryDir) && !Directory.Exists(entryDir))
+                {
+                    Directory.CreateDirectory(entryDir);
+                }
+
+                using var entryStream = entry.Open();
+                using var fileStream = File.Create(fullPath);
+                entryStream.CopyTo(fileStream);
+
+                importedFiles.Add(entry.FullName);
+            }
+
+            return string.Join(", ", importedFiles);
+        }
+
         public List<LogEntry> GetLogs(int count = 100, string? level = null)
         {
             var result = new List<LogEntry>();

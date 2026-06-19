@@ -41,14 +41,12 @@ namespace MorningCat
             {
                 if (e.ExceptionObject is Exception ex)
                 {
-                    Log.Name("MorningCat");
                     Log.Error(I18nManager.S("log.unhandled_exception", ex.Message, ex.StackTrace));
                 }
             };
 
             TaskScheduler.UnobservedTaskException += (sender, e) =>
             {
-                Log.Name("MorningCat");
                 Log.Error(I18nManager.S("log.unobserved_task_exception", e.Exception?.InnerException?.Message ?? e.Exception?.Message));
                 e.SetObserved();
             };
@@ -71,6 +69,9 @@ namespace MorningCat
                         overrideLang = args[i + 1];
                     }
                 }
+
+                // 先初始化国际化默认值（en），避免日志打印翻译键
+                I18nManager.Instance.InitializeDefault();
 
                 Log.Name("MorningCat");
                 if (isDebugMode)

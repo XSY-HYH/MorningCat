@@ -24,6 +24,8 @@ namespace MorningCat.WebUI
     {
         WebUIConfigData GetConfig();
         void UpdateConfig(Action<WebUIConfigData> updateAction);
+        byte[] ExportConfig();
+        string ImportConfig(byte[] zipData);
     }
 
     public class WebUIConfigData

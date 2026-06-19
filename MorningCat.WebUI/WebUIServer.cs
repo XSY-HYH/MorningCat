@@ -444,7 +444,8 @@ namespace MorningCat.WebUI
                             new { key = "webui", label = "webui.config.group.webui", icon = "globe" },
                             new { key = "i18n", label = "webui.config.group.i18n", icon = "languages" },
                             new { key = "database", label = "webui.config.group.database", icon = "database" },
-                            new { key = "pluginstore", label = "webui.config.group.pluginstore", icon = "package" }
+                            new { key = "pluginstore", label = "webui.config.group.pluginstore", icon = "package" },
+                            new { key = "backup", label = "webui.config.group.backup", icon = "archive" }
                         };
 
                         var items = new object[]
@@ -1761,6 +1762,76 @@ namespace MorningCat.WebUI
                     if (!await CheckApiAuthAsync(context)) return;
                     var list = await (_messageSendProvider?.GetFriendListAsync() ?? Task.FromResult(new List<FriendInfo>()));
                     await context.Response.WriteAsync(JsonResponse(list));
+                });
+            });
+
+            // 备份导出
+            app.Map("/api/backup/export", backupExportApp =>
+            {
+                backupExportApp.Run(async context =>
+                {
+                    if (!await CheckApiAuthAsync(context)) return;
+
+                    try
+                    {
+                        var data = _configProvider?.ExportConfig();
+                        if (data == null || data.Length == 0)
+                        {
+                            await context.Response.WriteAsync(JsonResponse(null, "Export failed", 500));
+                            return;
+                        }
+
+                        var fileName = $"mct_backup_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+                        context.Response.ContentType = "application/zip";
+                        context.Response.Headers["Content-Disposition"] = $"attachment; filename=\"{fileName}\"";
+                        await context.Response.Body.WriteAsync(data);
+                    }
+                    catch (Exception ex)
+                    {
+                        await context.Response.WriteAsync(JsonResponse(null, $"Export failed: {ex.Message}", 500));
+                    }
+                });
+            });
+
+            // 备份导入
+            app.Map("/api/backup/import", backupImportApp =>
+            {
+                backupImportApp.Run(async context =>
+                {
+                    if (!await CheckApiAuthAsync(context)) return;
+
+                    try
+                    {
+                        if (!context.Request.HasFormContentType)
+                        {
+                            await context.Response.WriteAsync(JsonResponse(null, "Expected multipart form data", 400));
+                            return;
+                        }
+
+                        var form = await context.Request.ReadFormAsync();
+                        var file = form.Files.FirstOrDefault();
+                        if (file == null)
+                        {
+                            await context.Response.WriteAsync(JsonResponse(null, "No file uploaded", 400));
+                            return;
+                        }
+
+                        using var stream = file.OpenReadStream();
+                        using var ms = new MemoryStream();
+                        await stream.CopyToAsync(ms);
+                        var zipData = ms.ToArray();
+
+                        var result = _configProvider?.ImportConfig(zipData);
+                        await context.Response.WriteAsync(JsonResponse(new { message = $"Imported successfully. Restart required. Files: {result}" }));
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        await context.Response.WriteAsync(JsonResponse(null, ex.Message, 400));
+                    }
+                    catch (Exception ex)
+                    {
+                        await context.Response.WriteAsync(JsonResponse(null, $"Import failed: {ex.Message}", 500));
+                    }
                 });
             });
         }

@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import useConfigSchema, { ConfigItem, ConfigGroup } from '@/hooks/use-config-schema';
 import useI18n from '@/hooks/use-i18n';
 import SaveButtons from '@/components/button/save_buttons';
+import BackupConfigCard from './backup';
 
 export default function DynamicConfigPage () {
   const navigate = useNavigate();
@@ -126,22 +127,30 @@ export default function DynamicConfigPage () {
       >
         {groups.map(group => (
           <Tab title={t(group.label)} key={group.key}>
-            <Card className='w-full max-w-3xl mx-auto backdrop-blur-sm border border-white/40 dark:border-white/10 shadow-sm rounded-2xl bg-white/60 dark:bg-black/40'>
-              <CardBody className='py-6 px-4 md:py-8 md:px-12'>
-                <form onSubmit={onSubmit} className='flex flex-col gap-5'>
-                  {(itemsByGroup[group.key] || []).map(item => (
-                    <SchemaFieldRenderer key={item.key} item={item} control={control} />
-                  ))}
-                  <Divider className='my-4' />
-                  <SaveButtons
-                    onSubmit={onSubmit}
-                    reset={onReset}
-                    isSubmitting={isSubmitting || saving}
-                    refresh={reload}
-                  />
-                </form>
-              </CardBody>
-            </Card>
+            {group.key === 'backup' ? (
+              <Card className='w-full max-w-3xl mx-auto backdrop-blur-sm border border-white/40 dark:border-white/10 shadow-sm rounded-2xl bg-white/60 dark:bg-black/40'>
+                <CardBody className='py-6 px-4 md:py-8 md:px-12'>
+                  <BackupConfigCard />
+                </CardBody>
+              </Card>
+            ) : (
+              <Card className='w-full max-w-3xl mx-auto backdrop-blur-sm border border-white/40 dark:border-white/10 shadow-sm rounded-2xl bg-white/60 dark:bg-black/40'>
+                <CardBody className='py-6 px-4 md:py-8 md:px-12'>
+                  <form onSubmit={onSubmit} className='flex flex-col gap-5'>
+                    {(itemsByGroup[group.key] || []).map(item => (
+                      <SchemaFieldRenderer key={item.key} item={item} control={control} />
+                    ))}
+                    <Divider className='my-4' />
+                    <SaveButtons
+                      onSubmit={onSubmit}
+                      reset={onReset}
+                      isSubmitting={isSubmitting || saving}
+                      refresh={reload}
+                    />
+                  </form>
+                </CardBody>
+              </Card>
+            )}
           </Tab>
         ))}
       </Tabs>

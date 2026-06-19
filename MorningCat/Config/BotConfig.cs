@@ -60,6 +60,9 @@ namespace MorningCat.Config
         [YamlMember(Alias = "twitter")]
         public TwitterConfig Twitter { get; set; } = new TwitterConfig();
 
+        [YamlMember(Alias = "agent")]
+        public AgentConfigSection Agent { get; set; } = new AgentConfigSection();
+
         public bool IsOwner(long qq)
         {
             return OwnerQQ == qq && OwnerQQ != 0;
@@ -91,5 +94,47 @@ namespace MorningCat.Config
 
         [YamlMember(Alias = "connection_string")]
         public string ConnectionString { get; set; } = "";
+    }
+
+    public class AgentConfigSection
+    {
+        [YamlMember(Alias = "enabled")]
+        public bool Enabled { get; set; } = false;
+
+        [YamlMember(Alias = "provider_id")]
+        public string ProviderId { get; set; } = "default";
+
+        [YamlMember(Alias = "base_url")]
+        public string BaseUrl { get; set; } = "";
+
+        [YamlMember(Alias = "api_key")]
+        public string ApiKey { get; set; } = "";
+
+        [YamlMember(Alias = "model")]
+        public string Model { get; set; } = "gpt-4o-mini";
+
+        [YamlMember(Alias = "system_prompt")]
+        public string SystemPrompt { get; set; } = "你是 MorningCat 的 AI 助手，一个友好、智能的对话伙伴。";
+
+        [YamlMember(Alias = "trigger_prefix")]
+        public string TriggerPrefix { get; set; } = "/ai";
+
+        [YamlMember(Alias = "max_rounds")]
+        public int MaxRounds { get; set; } = 10;
+
+        [YamlMember(Alias = "max_context_turns")]
+        public int MaxContextTurns { get; set; } = 20;
+
+        [YamlMember(Alias = "keep_recent_turns")]
+        public int KeepRecentTurns { get; set; } = 6;
+
+        [YamlMember(Alias = "session_timeout_minutes")]
+        public int SessionTimeoutMinutes { get; set; } = 30;
+
+        [YamlMember(Alias = "allowed_groups")]
+        public List<long>? AllowedGroups { get; set; }
+
+        [YamlMember(Alias = "allowed_users")]
+        public List<long>? AllowedUsers { get; set; }
     }
 }

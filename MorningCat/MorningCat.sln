@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ErrorMinefieldPlugin", "..\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MorningCat.I18n", "..\MorningCat.I18n\MorningCat.I18n.csproj", "{B7A91CCA-2B77-456E-B51A-A1C49B683017}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MorningCat.Agent", "..\MorningCat.Agent\MorningCat.Agent.csproj", "{7EA94D4E-7B10-4432-8569-563AD4DD501D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -167,6 +169,18 @@ Global
 		{B7A91CCA-2B77-456E-B51A-A1C49B683017}.Release|x64.Build.0 = Release|Any CPU
 		{B7A91CCA-2B77-456E-B51A-A1C49B683017}.Release|x86.ActiveCfg = Release|Any CPU
 		{B7A91CCA-2B77-456E-B51A-A1C49B683017}.Release|x86.Build.0 = Release|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Debug|x64.Build.0 = Debug|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Debug|x86.Build.0 = Debug|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Release|x64.ActiveCfg = Release|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Release|x64.Build.0 = Release|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Release|x86.ActiveCfg = Release|Any CPU
+		{7EA94D4E-7B10-4432-8569-563AD4DD501D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

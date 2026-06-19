@@ -28,6 +28,7 @@ namespace MorningCat
         private SetModule _setModule;
         private MessageRelayModule _messageRelayModule;
         private LangModule _langModule;
+        private AgentModule _agentModule;
         
         public string GetModuleNameByAssemblyName(string assemblyName)
         {
@@ -153,6 +154,10 @@ namespace MorningCat
             _langModule.SetServices(_mdc, _commandRegistry, _configManager);
             await _langModule.Init();
             
+            _agentModule = new AgentModule();
+            _agentModule.SetServices(_mdc, _commandRegistry, _configManager);
+            await _agentModule.InitAsync();
+            
             Log.Debug(_i18n.T("module.builtin_loaded"));
         }
         
@@ -164,6 +169,7 @@ namespace MorningCat
             _setModule?.UpdateMDC(_mdc);
             _messageRelayModule?.UpdateMDC(_mdc);
             _langModule?.UpdateMDC(_mdc);
+            _agentModule?.UpdateMDC(_mdc);
             
             try
             {
