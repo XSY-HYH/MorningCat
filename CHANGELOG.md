@@ -7,10 +7,8 @@ All notable changes to MorningCat will be documented in this file.
 ## v6.0.0
 
 ### New Features
-- **Agent Module**: Add AI agent integration with OpenAI-compatible API support, session management, and tool-loop workflow / 新增 AI Agent 模块，支持 OpenAI 兼容 API、会话管理与工具循环
 - **Config Backup/Restore**: WebUI now supports exporting and importing configuration as zip archive / WebUI 新增配置备份导出与导入功能
 - **Bot Self-Permission**: Bot account now has owner-level permission when executing commands / 机器人自身执行命令时等同于持有者权限
-- **Agent Configuration**: New `agent` section in config.yml with provider, model, session, and access control settings / 配置文件新增 agent 配置段
 
 ### Improvements
 - **Startup i18n**: Initialize i18n default locale (en) before logging to prevent raw translation keys in output / 启动时先初始化国际化默认值，避免日志打印翻译键
