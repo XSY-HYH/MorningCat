@@ -163,6 +163,7 @@ namespace MorningCat
         {
             try
             {
+                if (_webUIManager == null) return;
                 var groups = await _webUIManager.GetGroupListAsync();
                 var friends = await _webUIManager.GetFriendListAsync();
                 Log.Debug(I18nManager.S("lifecycle.contacts_refreshed", groups.Count, friends.Count));

@@ -26,6 +26,26 @@ if ($CsprojContent -match '<Version>([^<]+)</Version>') {
     exit 1
 }
 
+function Update-LibFromSource {
+    Write-Host "`n[Lib] 编译源码项目并更新 Lib 目录..." -ForegroundColor Cyan
+    $libDir = Join-Path $ProjectRoot "Lib"
+
+    # MorningCat.PlatformAbstraction - 有源码的项目
+    $paProject = Join-Path $ProjectRoot "MorningCat.PlatformAbstraction\MorningCat.PlatformAbstraction.csproj"
+    $paOut = Join-Path $ProjectRoot "MorningCat.PlatformAbstraction\bin\Release\net10.0"
+    if (Test-Path $paProject) {
+        Write-Host "[Lib] 编译 MorningCat.PlatformAbstraction..." -ForegroundColor Yellow
+        dotnet publish $paProject -c Release -o $paOut /p:Version=$Version
+        $paDll = Join-Path $paOut "MorningCat.PlatformAbstraction.dll"
+        if (Test-Path $paDll) {
+            Copy-Item $paDll $libDir -Force
+            Write-Host "[Lib] 已更新: MorningCat.PlatformAbstraction.dll" -ForegroundColor Green
+        }
+    }
+
+    Write-Host "[Lib] 完成" -ForegroundColor Green
+}
+
 function Clean-BinObj {
     Write-Host "[Clean] 清理 bin/obj 目录..." -ForegroundColor Cyan
     Get-ChildItem -Path $ProjectRoot -Directory -Recurse -Include bin, obj |
@@ -111,6 +131,7 @@ Write-Host "MorningCat v$Version 发布工具" -ForegroundColor Magenta
 Write-Host "=============================" -ForegroundColor Magenta
 
 Clean-BinObj
+Update-LibFromSource
 
 if ($Target -eq "all") {
     Publish-ML
