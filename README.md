@@ -160,11 +160,11 @@ await _mdc.SendAsync(message, builder => builder
 | Command / 命令 | Description / 说明 | Permission / 权限 |
 |---|---|---|
 | `/help` | Show help / 显示帮助 | Everyone / 所有人 |
-| `/status` | Show status / 显示状态 | Everyone / 所有人 |
 | `/stop` | Stop bot / 停止运行 | BotOwner / 持有者 |
-| `/plugin list` | List plugins / 列出插件 | GroupAdmin / 管理员 |
-| `/plugin enable <name>` | Enable plugin / 启用插件 | GroupAdmin / 管理员 |
-| `/plugin disable <name>` | Disable plugin / 禁用插件 | GroupAdmin / 管理员 |
+| `/restart` | Restart bot / 重启运行 | BotOwner / 持有者 |
+| `/plugin` | Manage plugins / 管理插件 | BotOwner / 持有者 |
+| `/lang` | Switch language / 切换语言 | BotOwner / 持有者 |
+| `/set` | Bot settings / 机器人设置 | BotOwner / 持有者 |
 
 ## Acknowledgments / 致谢
 

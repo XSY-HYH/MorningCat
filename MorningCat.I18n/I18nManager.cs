@@ -318,6 +318,11 @@ public class I18nManager
                 value = value[1..^1];
             }
 
+            // 处理转义序列
+            value = value.Replace("\\n", "\n")
+                         .Replace("\\t", "\t")
+                         .Replace("\\\\", "\\");
+
             if (!string.IsNullOrEmpty(key))
             {
                 result[key] = value;

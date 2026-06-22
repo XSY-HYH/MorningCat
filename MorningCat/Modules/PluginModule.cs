@@ -735,7 +735,22 @@ namespace MorningCat.Modules
                             Log.Debug(I18nManager.S("plugin_module.enable_file_exists_renaming"));
                             File.Move(disabledPath, normalPath);
                             Log.Debug(I18nManager.S("plugin_module.enable_rename_success"));
-                            await SendMessageAsync(message, I18nManager.S("plugin_module.enabled", module.ModuleName));
+                            
+                            // 先卸载旧模块
+                            await _moduleManager.UnloadModuleAsync(module.ModuleName);
+                            _commandRegistry.UnregisterModuleCommands(module.ModuleName);
+                            
+                            // 动态重新加载
+                            var loadResult = await _moduleManager.DynamicLoadModuleAsync(normalPath);
+                            if (loadResult.Success)
+                            {
+                                await SendMessageAsync(message, I18nManager.S("plugin_module.enabled_and_loaded", module.ModuleName));
+                            }
+                            else
+                            {
+                                var errors = string.Join("\n", loadResult.Errors);
+                                await SendMessageAsync(message, I18nManager.S("plugin_module.enabled_load_failed", module.ModuleName, errors));
+                            }
                         }
                         else
                         {
@@ -777,7 +792,18 @@ namespace MorningCat.Modules
                         Log.Debug(I18nManager.S("plugin_module.enable_file_exists_renaming"));
                         File.Move(disabledPath, normalPath);
                         Log.Debug(I18nManager.S("plugin_module.enable_rename_success"));
-                        await SendMessageAsync(message, I18nManager.S("plugin_module.enabled", disabledPlugin.Name));
+                        
+                        // 动态加载
+                        var loadResult = await _moduleManager.DynamicLoadModuleAsync(normalPath);
+                        if (loadResult.Success)
+                        {
+                            await SendMessageAsync(message, I18nManager.S("plugin_module.enabled_and_loaded", disabledPlugin.Name));
+                        }
+                        else
+                        {
+                            var errors = string.Join("\n", loadResult.Errors);
+                            await SendMessageAsync(message, I18nManager.S("plugin_module.enabled_load_failed", disabledPlugin.Name, errors));
+                        }
                     }
                     else
                     {
