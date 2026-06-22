@@ -17,6 +17,12 @@ namespace MorningCat
                 Log.Name("MDC");
                 Log.Info(_i18n.T("connection.connecting"));
                 
+                // 先创建认证等待源，防止连接事件在创建前触发导致丢失
+                if (_mdc.IsPlatformEnabled(PlatformId.OneBot))
+                {
+                    _authCompletionSource = new TaskCompletionSource<bool>();
+                }
+                
                 var results = await _mdc.ConnectAllAsync();
                 
                 foreach (var kv in results)
@@ -34,7 +40,6 @@ namespace MorningCat
                 // 等待认证
                 if (_mdc.IsPlatformEnabled(PlatformId.OneBot))
                 {
-                    _authCompletionSource = new TaskCompletionSource<bool>();
                     var authTask = _authCompletionSource.Task;
                     
                     if (await Task.WhenAny(authTask, Task.Delay(15000)) == authTask)

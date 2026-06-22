@@ -67,3 +67,4 @@ references/
 
 # Agent project (temporarily separated, will be reintegrated later)
 MorningCat.Agent/
+MorningCat.WebUI/wwwroot/

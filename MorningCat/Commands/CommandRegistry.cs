@@ -43,9 +43,44 @@ namespace MorningCat.Commands
         public string Name { get; set; }
         public string Description { get; set; }
         public bool IsRequired { get; set; }
+        /// <summary>
+        /// 主类型，向后兼容。新代码建议使用 AllowedTypes
+        /// </summary>
         public ParameterType Type { get; set; } = ParameterType.String;
+        /// <summary>
+        /// 联合类型列表：该参数位置可接受的多种类型，按优先级顺序匹配。
+        /// 为空时回退到 Type 字段。
+        /// </summary>
+        public List<ParameterType> AllowedTypes { get; set; } = new List<ParameterType>();
         public string DefaultValue { get; set; }
         public List<CommandParameter> SubParameters { get; set; } = new List<CommandParameter>();
+
+        /// <summary>
+        /// 获取该参数实际可接受的类型列表。
+        /// 如果 AllowedTypes 非空则使用它，否则回退到 Type。
+        /// </summary>
+        public List<ParameterType> GetEffectiveTypes()
+        {
+            return AllowedTypes != null && AllowedTypes.Count > 0
+                ? AllowedTypes
+                : new List<ParameterType> { Type };
+        }
+    }
+
+    /// <summary>
+    /// 同级分支：定义一组互斥的参数分支。
+    /// 命令匹配时，按顺序尝试每个分支，第一个匹配成功的分支被采用。
+    /// </summary>
+    public class ParameterBranch
+    {
+        /// <summary>
+        /// 分支名称，用于日志和帮助文本
+        /// </summary>
+        public string Name { get; set; }
+        /// <summary>
+        /// 该分支的参数列表
+        /// </summary>
+        public List<CommandParameter> Parameters { get; set; } = new List<CommandParameter>();
     }
 
     public class CommandInfo
@@ -54,6 +89,11 @@ namespace MorningCat.Commands
         public string Description { get; set; }
         public string HelpText { get; set; }
         public List<CommandParameter> Parameters { get; set; } = new List<CommandParameter>();
+        /// <summary>
+        /// 同级分支列表：与 Parameters 互斥的参数分支组。
+        /// 解析时先尝试 Parameters，失败后按顺序尝试 AlternativeGroups 中的分支。
+        /// </summary>
+        public List<ParameterBranch> AlternativeGroups { get; set; } = new List<ParameterBranch>();
         public Func<CommandContext, Task> Handler { get; set; }
         public string ModuleName { get; set; }
         public bool IsRegistered { get; set; }
@@ -145,6 +185,13 @@ namespace MorningCat.Commands
             }
 
             commandName = commandName.TrimStart('/').ToLower();
+
+            // 命令名不允许包含空格
+            if (commandName.Contains(' '))
+            {
+                Log.Error(I18nManager.S("command.name_contains_space", commandName, moduleName));
+                return false;
+            }
 
             lock (_lock)
             {
@@ -303,15 +350,15 @@ namespace MorningCat.Commands
             try
             {
                 var args = parts.Skip(1).ToArray();
-                var validationResult = ValidateParameters(args, command.Parameters, cleanedText, message);
+                
+                // 尝试匹配参数：先尝试主参数列表，再尝试同级分支
+                var (parameters, validationResult) = TryMatchParameters(args, command, cleanedText, message);
                 
                 if (!validationResult.IsValid)
                 {
                     await SendErrorMessageAsync(message, validationResult, cleanedText);
                     return false;
                 }
-
-                var parameters = ParseParameters(args, command.Parameters, message);
 
                 var context = new CommandContext
                 {
@@ -355,6 +402,39 @@ namespace MorningCat.Commands
             }
         }
 
+        /// <summary>
+        /// 尝试匹配参数：先尝试主参数列表，再按序尝试同级分支。
+        /// 返回匹配成功的参数字典和验证结果。
+        /// </summary>
+        private (Dictionary<string, string> parameters, ValidationResult result) TryMatchParameters(
+            string[] args, CommandInfo command, string rawCommand, PlatformMessage message)
+        {
+            // 1. 尝试主参数列表
+            var mainValidation = ValidateParameters(args, command.Parameters, rawCommand, message);
+            if (mainValidation.IsValid)
+            {
+                var mainParams = ParseParameters(args, command.Parameters, message);
+                return (mainParams, mainValidation);
+            }
+
+            // 2. 按序尝试同级分支
+            if (command.AlternativeGroups != null)
+            {
+                foreach (var branch in command.AlternativeGroups)
+                {
+                    var branchValidation = ValidateParameters(args, branch.Parameters, rawCommand, message);
+                    if (branchValidation.IsValid)
+                    {
+                        var branchParams = ParseParameters(args, branch.Parameters, message);
+                        return (branchParams, branchValidation);
+                    }
+                }
+            }
+
+            // 3. 全部失败，返回主参数列表的验证错误
+            return (new Dictionary<string, string>(), mainValidation);
+        }
+
         private ValidationResult ValidateParameters(string[] args, List<CommandParameter> parameterDefs, string rawCommand, PlatformMessage message)
         {
             if (parameterDefs == null || parameterDefs.Count == 0)
@@ -365,25 +445,44 @@ namespace MorningCat.Commands
 
         private ValidationResult ValidateParametersRecursive(string[] args, List<CommandParameter> parameterDefs, string rawCommand, int argStartIndex, PlatformMessage message)
         {
-            int atParamCount = 0;
-            int replyParamCount = 0;
+            int specialParamOffset = 0; // At/Reply 类型参数不消耗文本参数，需要偏移
             for (int i = 0; i < parameterDefs.Count; i++)
             {
                 var paramDef = parameterDefs[i];
+                var effectiveTypes = paramDef.GetEffectiveTypes();
                 
-                if (paramDef.Type == ParameterType.At)
+                // 纯特殊类型参数（只含 At/Reply）不消耗文本参数位
+                bool isPureSpecial = effectiveTypes.All(t => t == ParameterType.At || t == ParameterType.Reply);
+                if (isPureSpecial)
                 {
-                    atParamCount++;
+                    specialParamOffset++;
+                    
+                    // 检查特殊类型是否有数据
+                    if (paramDef.IsRequired)
+                    {
+                        if (effectiveTypes.Contains(ParameterType.At) && ExtractAtUsers(message).Count == 0)
+                        {
+                            return new ValidationResult
+                            {
+                                IsValid = false,
+                                ErrorMessage = I18nManager.S("command.missing_required_param", paramDef.Name),
+                                ErrorParameter = paramDef.Name
+                            };
+                        }
+                        if (effectiveTypes.Contains(ParameterType.Reply) && !ExtractReplyMessageId(message).HasValue)
+                        {
+                            return new ValidationResult
+                            {
+                                IsValid = false,
+                                ErrorMessage = I18nManager.S("command.missing_required_param", paramDef.Name),
+                                ErrorParameter = paramDef.Name
+                            };
+                        }
+                    }
                     continue;
                 }
                 
-                if (paramDef.Type == ParameterType.Reply)
-                {
-                    replyParamCount++;
-                    continue;
-                }
-                
-                int argIndex = argStartIndex + i - atParamCount - replyParamCount;
+                int argIndex = argStartIndex + i - specialParamOffset;
                 bool hasArg = argIndex < args.Length;
 
                 if (paramDef.IsRequired && !hasArg)
@@ -399,7 +498,7 @@ namespace MorningCat.Commands
 
                 if (hasArg)
                 {
-                    var typeResult = ValidateParameterType(args[argIndex], paramDef);
+                    var typeResult = ValidateParameterTypes(args[argIndex], paramDef, effectiveTypes);
                     if (!typeResult.IsValid)
                     {
                         return new ValidationResult
@@ -425,9 +524,34 @@ namespace MorningCat.Commands
             return new ValidationResult { IsValid = true };
         }
 
-        private ValidationResult ValidateParameterType(string value, CommandParameter paramDef)
+        /// <summary>
+        /// 联合类型验证：尝试匹配参数的任一允许类型，全部失败才报错
+        /// </summary>
+        private ValidationResult ValidateParameterTypes(string value, CommandParameter paramDef, List<ParameterType> effectiveTypes)
         {
-            switch (paramDef.Type)
+            foreach (var type in effectiveTypes)
+            {
+                var result = ValidateSingleType(value, paramDef, type);
+                if (result.IsValid)
+                    return result;
+            }
+            
+            // 全部类型都不匹配，返回最后一个错误
+            var lastResult = ValidateSingleType(value, paramDef, effectiveTypes[effectiveTypes.Count - 1]);
+            
+            // 构建联合类型的错误消息
+            var typeNames = effectiveTypes.Select(t => GetTypeString(t)).ToList();
+            var typeList = string.Join("/", typeNames);
+            return new ValidationResult
+            {
+                IsValid = false,
+                ErrorMessage = I18nManager.S("command.param_type_mismatch", paramDef.Name, value, typeList)
+            };
+        }
+
+        private ValidationResult ValidateSingleType(string value, CommandParameter paramDef, ParameterType type)
+        {
+            switch (type)
             {
                 case ParameterType.Integer:
                     if (!int.TryParse(value, out _))
@@ -465,6 +589,7 @@ namespace MorningCat.Commands
 
                 case ParameterType.At:
                 case ParameterType.Reply:
+                case ParameterType.String:
                     break;
             }
 
@@ -614,30 +739,34 @@ namespace MorningCat.Commands
             for (int i = 0; i < paramCount; i++)
             {
                 var paramDef = parameterDefs[i];
+                var effectiveTypes = paramDef.GetEffectiveTypes();
                 bool isLastParam = (i == paramCount - 1);
                 int remainingArgs = args.Length - currentArgIndex;
 
-                if (paramDef.Type == ParameterType.At)
+                // 纯特殊类型参数（At/Reply）不消耗文本参数位
+                bool isPureSpecial = effectiveTypes.All(t => t == ParameterType.At || t == ParameterType.Reply);
+                if (isPureSpecial)
                 {
-                    if (atIndex < atUsers.Count)
+                    // 按优先级尝试匹配特殊类型
+                    bool matched = false;
+                    foreach (var type in effectiveTypes)
                     {
-                        result[paramDef.Name] = atUsers[atIndex].ToString();
-                        atIndex++;
+                        if (type == ParameterType.At && atIndex < atUsers.Count)
+                        {
+                            result[paramDef.Name] = atUsers[atIndex].ToString();
+                            atIndex++;
+                            matched = true;
+                            break;
+                        }
+                        if (type == ParameterType.Reply && replyMessageId.HasValue)
+                        {
+                            result[paramDef.Name] = replyMessageId.Value.ToString();
+                            matched = true;
+                            break;
+                        }
                     }
-                    else if (paramDef.DefaultValue != null)
-                    {
-                        result[paramDef.Name] = paramDef.DefaultValue;
-                    }
-                    continue;
-                }
-                
-                if (paramDef.Type == ParameterType.Reply)
-                {
-                    if (replyMessageId.HasValue)
-                    {
-                        result[paramDef.Name] = replyMessageId.Value.ToString();
-                    }
-                    else if (paramDef.DefaultValue != null)
+                    
+                    if (!matched && paramDef.DefaultValue != null)
                     {
                         result[paramDef.Name] = paramDef.DefaultValue;
                     }
@@ -646,7 +775,8 @@ namespace MorningCat.Commands
 
                 if (currentArgIndex < args.Length)
                 {
-                    if (isLastParam && paramDef.SubParameters != null && paramDef.SubParameters.Count > 0)
+                    // 任意位置的 SubParameters 支持
+                    if (paramDef.SubParameters != null && paramDef.SubParameters.Count > 0)
                     {
                         result[paramDef.Name] = args[currentArgIndex];
                         currentArgIndex++;
@@ -654,22 +784,10 @@ namespace MorningCat.Commands
                         var subConsumed = ParseParametersRecursive(args, paramDef.SubParameters, result, currentArgIndex, atUsers, ref atIndex, replyMessageId);
                         currentArgIndex += subConsumed;
                     }
-                    else if (isLastParam && remainingArgs > 0)
-                    {
-                        result[paramDef.Name] = args[currentArgIndex];
-                        currentArgIndex++;
-                    }
-                    else if (!isLastParam)
-                    {
-                        result[paramDef.Name] = args[currentArgIndex];
-                        currentArgIndex++;
-                    }
                     else
                     {
-                        if (paramDef.DefaultValue != null)
-                        {
-                            result[paramDef.Name] = paramDef.DefaultValue;
-                        }
+                        result[paramDef.Name] = args[currentArgIndex];
+                        currentArgIndex++;
                     }
                 }
                 else if (paramDef.DefaultValue != null)
@@ -744,6 +862,8 @@ namespace MorningCat.Commands
                 ParameterType.Integer => I18nManager.S("command.type_integer"),
                 ParameterType.Float => I18nManager.S("command.type_float"),
                 ParameterType.Boolean => I18nManager.S("command.type_boolean"),
+                ParameterType.At => I18nManager.S("command.type_at"),
+                ParameterType.Reply => I18nManager.S("command.type_reply"),
                 _ => I18nManager.S("command.type_unknown")
             };
         }

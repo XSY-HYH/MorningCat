@@ -7,9 +7,9 @@
 		<Nullable>enable</Nullable>
 		<AssemblyName>MorningCat</AssemblyName>
 		<RootNamespace>MorningCat</RootNamespace>
-		<Version>6.0.0</Version>
-		<AssemblyVersion>6.0.0</AssemblyVersion>
-		<FileVersion>6.0.0</FileVersion>
+		<Version>6.1.0</Version>
+		<AssemblyVersion>6.1.0</AssemblyVersion>
+		<FileVersion>6.1.0</FileVersion>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 	</PropertyGroup>

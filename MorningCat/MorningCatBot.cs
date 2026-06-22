@@ -88,6 +88,12 @@ namespace MorningCat
             _commandRegistry = new CommandRegistry(_mdc, _configManager);
             _commandRegistry.SetBot(this);
             _pluginCommandAPI = new PluginCommandAPI(_commandRegistry);
+            _pluginCommandAPI.SetUnloadCallback(async (moduleName) =>
+            {
+                Log.Name("MorningCatBotCore");
+                Log.Warning(I18nManager.S("command.unloading_violating_plugin", moduleName));
+                await _moduleManager.UnloadModuleAsync(moduleName);
+            });
             _pluginDatabaseAPI = new PluginDatabaseAPI(_configManager.GetConfig().Database);
             _signatureVerifier = new PluginSignatureVerifier(_configManager, testMode);
             
@@ -171,6 +177,12 @@ namespace MorningCat
             _commandRegistry = new CommandRegistry(_mdc, _configManager);
             _commandRegistry.SetBot(this);
             _pluginCommandAPI = new PluginCommandAPI(_commandRegistry);
+            _pluginCommandAPI.SetUnloadCallback(async (moduleName) =>
+            {
+                Log.Name("MorningCatBotCore");
+                Log.Warning(I18nManager.S("command.unloading_violating_plugin", moduleName));
+                await _moduleManager.UnloadModuleAsync(moduleName);
+            });
             _pluginDatabaseAPI = new PluginDatabaseAPI(_configManager.GetConfig().Database);
             _signatureVerifier = new PluginSignatureVerifier(_configManager, _isTestMode);
             _authCompletionSource = new TaskCompletionSource<bool>();
@@ -184,7 +196,14 @@ namespace MorningCat
             _mdc.OnPlatformConnectionChanged += OnPlatformConnectionChanged;
             _mdc.OnPlatformDisconnected += OnPlatformDisconnected;
             
-            await StartAsync();
+            try
+            {
+                await StartAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(_i18n.T("bot.start_error", ex.Message));
+            }
             await StartWebUIAsync();
             StartGui();
             

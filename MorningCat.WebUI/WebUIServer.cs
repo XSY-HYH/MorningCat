@@ -589,8 +589,6 @@ namespace MorningCat.WebUI
             {
                 i18nApp.Run(async context =>
                 {
-                    if (!await CheckApiAuthAsync(context)) return;
-
                     var lang = context.Request.Query["lang"].ToString();
                     Dictionary<string, string>? allTranslations;
 
@@ -621,8 +619,6 @@ namespace MorningCat.WebUI
             {
                 i18nApp.Run(async context =>
                 {
-                    if (!await CheckApiAuthAsync(context)) return;
-
                     await context.Response.WriteAsync(JsonResponse(new
                     {
                         current = _i18nProvider?.CurrentLang ?? "zh",
